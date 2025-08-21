@@ -21,7 +21,7 @@ interface FileStatusTableProps {
 export function FileStatusTable({ files }: FileStatusTableProps) {
   const getStatusVariant = (status: FileStatus['status']): 'default' | 'destructive' | 'secondary' => {
     switch (status) {
-      case 'imported':
+      case 'transferred':
         return 'default'; // Primary color
       case 'failed':
         return 'destructive';
@@ -69,7 +69,7 @@ export function FileStatusTable({ files }: FileStatusTableProps) {
             ) : (
                 <TableRow>
                     <TableCell colSpan={3} className="h-24 text-center">
-                    No files found.
+                    No files found for the current filter.
                     </TableCell>
                 </TableRow>
             )}

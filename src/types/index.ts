@@ -8,11 +8,12 @@ export type User = {
 export type FileStatus = {
   id: string;
   name: string;
-  status: 'imported' | 'failed' | 'published';
+  status: 'transferred' | 'failed' | 'published';
   lastUpdated: string;
 };
 
 export type MonitoredPath = {
   id: string;
   path: string;
+  label?: string;
 };
