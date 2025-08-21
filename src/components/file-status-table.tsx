@@ -9,7 +9,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import type { FileStatus } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
@@ -19,16 +18,16 @@ interface FileStatusTableProps {
 }
 
 export function FileStatusTable({ files }: FileStatusTableProps) {
-  const getStatusVariant = (status: FileStatus['status']): 'default' | 'destructive' | 'secondary' => {
+  const getStatusClasses = (status: FileStatus['status']): string => {
     switch (status) {
       case 'transferred':
-        return 'default'; // Primary color
+        return 'bg-blue-500/80 border-transparent text-white'; 
       case 'failed':
-        return 'destructive';
+        return 'bg-red-500/80 border-transparent text-white';
       case 'published':
-        return 'secondary';
+        return 'bg-green-500/80 border-transparent text-white';
       default:
-        return 'secondary';
+        return 'bg-secondary text-secondary-foreground';
     }
   };
 
@@ -57,7 +56,7 @@ export function FileStatusTable({ files }: FileStatusTableProps) {
                 >
                   <TableCell className="font-medium">{file.name}</TableCell>
                   <TableCell>
-                    <Badge variant={getStatusVariant(file.status)} className="capitalize transition-colors duration-500">
+                    <Badge className={`${getStatusClasses(file.status)} capitalize transition-colors duration-500`}>
                       {file.status}
                     </Badge>
                   </TableCell>
@@ -79,3 +78,5 @@ export function FileStatusTable({ files }: FileStatusTableProps) {
     </div>
   );
 }
+
+    

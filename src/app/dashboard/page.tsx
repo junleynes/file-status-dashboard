@@ -6,9 +6,9 @@ import { FileStatusTable } from "@/components/file-status-table";
 import { useAuth } from "@/hooks/use-auth";
 import type { FileStatus } from "@/types";
 import { initialFileStatuses } from "@/lib/mock-data";
-import { Trash2, Search, X } from "lucide-react";
+import { Trash2, Search, X, CheckCircle2, AlertTriangle, FileUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
@@ -101,23 +101,32 @@ export default function DashboardPage() {
       </div>
 
        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
+          <Card className="bg-green-500/20 dark:bg-green-500/10 border-green-500 text-green-900 dark:text-green-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Published</CardTitle>
-              <span className="text-2xl font-bold">{statusCounts.published || 0}</span>
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
             </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{statusCounts.published || 0}</div>
+            </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-blue-500/20 dark:bg-blue-500/10 border-blue-500 text-blue-900 dark:text-blue-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Transferred</CardTitle>
-              <span className="text-2xl font-bold">{statusCounts.transferred || 0}</span>
+              <FileUp className="h-4 w-4 text-blue-500" />
             </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{statusCounts.transferred || 0}</div>
+            </CardContent>
           </Card>
-          <Card>
+          <Card className="bg-red-500/20 dark:bg-red-500/10 border-red-500 text-red-900 dark:text-red-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Failed</CardTitle>
-              <span className="text-2xl font-bold">{statusCounts.failed || 0}</span>
+              <AlertTriangle className="h-4 w-4 text-red-500" />
             </CardHeader>
+            <CardContent>
+                 <div className="text-2xl font-bold">{statusCounts.failed || 0}</div>
+            </CardContent>
           </Card>
        </div>
 
@@ -143,8 +152,8 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center gap-2">
                 <Button variant={statusFilter === 'all' ? 'default' : 'outline'} onClick={() => setStatusFilter('all')}>All</Button>
-                <Button variant={statusFilter === 'published' ? 'default' : 'outline'} onClick={() => setStatusFilter('published')}>Published</Button>
-                <Button variant={statusFilter === 'transferred' ? 'default' : 'outline'} onClick={() => setStatusFilter('transferred')}>Transferred</Button>
+                <Button variant={statusFilter === 'published' ? 'secondary' : 'outline'} className={statusFilter === 'published' ? 'bg-green-500/80 text-white' : ''} onClick={() => setStatusFilter('published')}>Published</Button>
+                <Button variant={statusFilter === 'transferred' ? 'secondary' : 'outline'} className={statusFilter === 'transferred' ? 'bg-blue-500/80 text-white' : ''} onClick={() => setStatusFilter('transferred')}>Transferred</Button>
                 <Button variant={statusFilter === 'failed' ? 'destructive' : 'outline'} onClick={() => setStatusFilter('failed')}>Failed</Button>
             </div>
           </div>
@@ -155,3 +164,4 @@ export default function DashboardPage() {
     </motion.div>
   );
 }
+    

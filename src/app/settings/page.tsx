@@ -75,7 +75,7 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Monitored Paths</CardTitle>
-          <CardDescription>Add or remove network and local paths to monitor.</CardDescription>
+          <CardDescription>Add or remove network and local paths to monitor. A label provides a friendly name for a given path.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAddPath} className="flex flex-col gap-4 mb-4 md:flex-row">
@@ -137,3 +137,4 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
+    
