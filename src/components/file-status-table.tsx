@@ -36,7 +36,8 @@ export function FileStatusTable({ files }: FileStatusTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[50%]">File Name</TableHead>
+            <TableHead className="w-[40%]">File Name</TableHead>
+            <TableHead>Source</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Last Updated</TableHead>
           </TableRow>
@@ -55,6 +56,7 @@ export function FileStatusTable({ files }: FileStatusTableProps) {
                   className="w-full"
                 >
                   <TableCell className="font-medium">{file.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{file.source}</TableCell>
                   <TableCell>
                     <Badge className={`${getStatusClasses(file.status)} capitalize transition-colors duration-500`}>
                       {file.status}
@@ -67,7 +69,7 @@ export function FileStatusTable({ files }: FileStatusTableProps) {
               ))
             ) : (
                 <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center">
+                    <TableCell colSpan={4} className="h-24 text-center">
                     No files found for the current filter.
                     </TableCell>
                 </TableRow>
@@ -78,5 +80,3 @@ export function FileStatusTable({ files }: FileStatusTableProps) {
     </div>
   );
 }
-
-    

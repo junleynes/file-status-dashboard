@@ -9,11 +9,12 @@ export type FileStatus = {
   id: string;
   name: string;
   status: 'transferred' | 'failed' | 'published';
+  source: string;
   lastUpdated: string;
 };
 
 export type MonitoredPath = {
   id: string;
   path: string;
-  label?: string;
+  label: string;
 };

@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { initialMonitoredPaths } from "@/lib/mock-data";
+import { initialMonitoredPaths, initialMonitoredExtensions } from "@/lib/mock-data";
 import type { MonitoredPath } from "@/types";
 import { PlusCircle, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +19,10 @@ export default function SettingsPage() {
   const [paths, setPaths] = useState<MonitoredPath[]>(initialMonitoredPaths);
   const [newPath, setNewPath] = useState('');
   const [newLabel, setNewLabel] = useState('');
+
+  const [extensions, setExtensions] = useState<string[]>(initialMonitoredExtensions);
+  const [newExtension, setNewExtension] = useState('');
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -34,8 +38,15 @@ export default function SettingsPage() {
 
   const handleAddPath = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPath.trim() === '') return;
-    setPaths(prev => [...prev, { id: crypto.randomUUID(), path: newPath, label: newLabel || undefined }]);
+    if (newPath.trim() === '' || newLabel.trim() === '') {
+        toast({
+            title: "Missing Information",
+            description: "Please provide both a path and a label.",
+            variant: "destructive",
+        });
+        return;
+    }
+    setPaths(prev => [...prev, { id: crypto.randomUUID(), path: newPath, label: newLabel }]);
     setNewPath('');
     setNewLabel('');
     toast({
@@ -53,6 +64,38 @@ export default function SettingsPage() {
         variant: 'destructive'
       });
   };
+
+  const handleAddExtension = (e: React.FormEvent) => {
+    e.preventDefault();
+    let cleanExtension = newExtension.trim().toLowerCase();
+    if(cleanExtension === '') return;
+    if (cleanExtension.startsWith('.')) {
+        cleanExtension = cleanExtension.substring(1);
+    }
+    if (extensions.includes(cleanExtension)) {
+        toast({
+            title: "Duplicate Extension",
+            description: `The extension ".${cleanExtension}" is already being monitored.`,
+            variant: "destructive",
+        });
+        return;
+    }
+    setExtensions(prev => [...prev, cleanExtension]);
+    setNewExtension('');
+    toast({
+        title: "Extension Added",
+        description: `Successfully added ".${cleanExtension}" to monitored extensions.`,
+    });
+  };
+
+  const handleRemoveExtension = (ext: string) => {
+    setExtensions(prev => prev.filter(e => e !== ext));
+    toast({
+        title: "Extension Removed",
+        description: `Successfully removed ".${ext}" from monitored extensions.`,
+        variant: "destructive",
+    });
+  };
   
   if (loading || user?.role !== 'admin') {
     return null; // Or a loading spinner
@@ -68,14 +111,14 @@ export default function SettingsPage() {
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
         <p className="text-muted-foreground">
-          Configure which folders and paths are being monitored.
+          Configure which folders, paths, and file types are being monitored.
         </p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Monitored Paths</CardTitle>
-          <CardDescription>Add or remove network and local paths to monitor. A label provides a friendly name for a given path.</CardDescription>
+          <CardDescription>Add or remove network and local paths to monitor. The label provides a friendly name for the source of a file.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAddPath} className="flex flex-col gap-4 mb-4 md:flex-row">
@@ -89,7 +132,7 @@ export default function SettingsPage() {
                 />
             </div>
             <div className="space-y-2">
-                <Label htmlFor="new-label">Label (Optional)</Label>
+                <Label htmlFor="new-label">Label</Label>
                 <Input
                 id="new-label"
                 placeholder="e.g., Main Storage"
@@ -120,7 +163,7 @@ export default function SettingsPage() {
                         >
                             <div className="flex flex-col">
                                 <p className="font-mono text-sm">{path.path}</p>
-                                {path.label && <p className="text-xs text-muted-foreground">{path.label}</p>}
+                                <p className="text-xs text-muted-foreground">{path.label}</p>
                             </div>
                             <Button variant="ghost" size="icon" onClick={() => handleRemovePath(path.id)}>
                                 <Trash2 className="h-4 w-4 text-destructive" />
@@ -134,7 +177,60 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Monitored File Extensions</CardTitle>
+          <CardDescription>Specify which file extensions or containers to monitor. Add one extension at a time.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleAddExtension} className="flex gap-4 mb-4">
+            <div className="flex-1 space-y-2">
+                <Label htmlFor="new-extension">Extension</Label>
+                <Input
+                id="new-extension"
+                placeholder="e.g., mov, wav, pdf"
+                value={newExtension}
+                onChange={(e) => setNewExtension(e.target.value)}
+                />
+            </div>
+            <div className="self-end">
+              <Button type="submit" className="w-full md:w-auto">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Extension
+              </Button>
+            </div>
+          </form>
+
+          <div className="space-y-2 rounded-lg border p-2">
+            <AnimatePresence>
+                {extensions.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 p-2">
+                    {extensions.map(ext => (
+                        <motion.div
+                            key={ext}
+                            layout
+                            initial={{ opacity: 0, scale: 0.5 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.5 }}
+                            transition={{ duration: 0.2 }}
+                            className="flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground"
+                        >
+                            <span>.{ext}</span>
+                            <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full" onClick={() => handleRemoveExtension(ext)}>
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                            </Button>
+                        </motion.div>
+                    ))}
+                    </div>
+                ) : (
+                    <div className="text-center text-muted-foreground p-4">No extensions are being monitored. All files will be tracked.</div>
+                )}
+            </AnimatePresence>
+          </div>
+        </CardContent>
+      </Card>
+
     </motion.div>
   );
 }
-    
