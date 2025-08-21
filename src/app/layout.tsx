@@ -9,8 +9,8 @@ import { ThemeProvider } from '@/components/theme-provider';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'FileStatus Tracker',
-  description: 'Monitor file statuses across your storage.',
+  title: 'Your Brand',
+  description: 'A custom application built with Firebase Studio.',
 };
 
 export default function RootLayout({
@@ -41,5 +41,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-    

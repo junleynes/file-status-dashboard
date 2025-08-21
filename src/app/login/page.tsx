@@ -15,8 +15,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { FileIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { BrandLogo } from '@/components/brand-logo';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('admin@example.com');
@@ -46,9 +46,9 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <FileIcon className="h-8 w-8 text-primary" />
+            <BrandLogo className="h-8 w-8 text-primary" />
           </div>
-          <CardTitle>FileStatus Tracker</CardTitle>
+          <CardTitle>Your Brand</CardTitle>
           <CardDescription>Sign in to monitor your files</CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>

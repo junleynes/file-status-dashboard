@@ -29,9 +29,10 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuPortal
 } from '@/components/ui/dropdown-menu';
-import { BarChartIcon, CogIcon, LogOutIcon, FileIcon, Moon, Sun, Laptop } from 'lucide-react';
+import { BarChartIcon, CogIcon, LogOutIcon, Moon, Sun, Laptop } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { useTheme } from "next-themes";
+import { BrandLogo } from './brand-logo';
 
 function Header() {
   const { user, logout } = useAuth();
@@ -47,8 +48,8 @@ function Header() {
     <header className="flex h-16 items-center justify-between border-b bg-background/50 backdrop-blur-sm px-4 md:px-6">
        <div className="flex items-center gap-2">
          <SidebarTrigger className="md:hidden" />
-         <FileIcon className="h-6 w-6 text-primary" />
-         <h1 className="text-lg font-semibold">FileStatus Tracker</h1>
+         <BrandLogo className="h-6 w-6 text-primary" />
+         <h1 className="text-lg font-semibold">Your Brand</h1>
        </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -116,7 +117,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
        <div className="flex h-screen w-full items-center justify-center">
          <div className="flex flex-col items-center gap-4">
-            <FileIcon className="h-12 w-12 animate-pulse text-primary" />
+            <BrandLogo className="h-12 w-12 animate-pulse text-primary" />
             <Skeleton className="h-4 w-48" />
          </div>
        </div>
@@ -170,5 +171,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-
-    
