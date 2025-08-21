@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { useBranding } from '@/hooks/use-branding';
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,6 +24,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('password123');
   const [role, setRole] = useState<'admin' | 'user'>('admin');
   const { login } = useAuth();
+  const { brandName } = useBranding();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -48,7 +50,7 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
             <BrandLogo className="h-8 w-8 text-primary" />
           </div>
-          <CardTitle>Your Brand</CardTitle>
+          <CardTitle>{brandName}</CardTitle>
           <CardDescription>Sign in to monitor your files</CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>

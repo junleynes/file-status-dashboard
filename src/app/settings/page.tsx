@@ -2,26 +2,31 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
+import { useBranding } from "@/hooks/use-branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { initialMonitoredPaths, initialMonitoredExtensions } from "@/lib/mock-data";
 import type { MonitoredPath } from "@/types";
-import { PlusCircle, Trash2 } from "lucide-react";
+import { PlusCircle, Trash2, UploadCloud } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
+  const { brandName, logo, setBrandName, setLogo } = useBranding();
   const router = useRouter();
+
   const [paths, setPaths] = useState<MonitoredPath[]>(initialMonitoredPaths);
   const [newPath, setNewPath] = useState('');
   const [newLabel, setNewLabel] = useState('');
 
   const [extensions, setExtensions] = useState<string[]>(initialMonitoredExtensions);
   const [newExtension, setNewExtension] = useState('');
+  const [localBrandName, setLocalBrandName] = useState(brandName);
 
   const { toast } = useToast();
 
@@ -96,9 +101,36 @@ export default function SettingsPage() {
         variant: "destructive",
     });
   };
-  
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogo(reader.result as string);
+        toast({
+            title: "Logo Updated",
+            description: "Your new brand logo has been saved.",
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleBrandNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalBrandName(e.target.value);
+  }
+
+  const handleBrandNameSave = () => {
+    setBrandName(localBrandName);
+    toast({
+        title: "Brand Name Updated",
+        description: "Your new brand name has been saved.",
+    });
+  }
+
   if (loading || user?.role !== 'admin') {
-    return null; // Or a loading spinner
+    return null;
   }
 
   return (
@@ -111,9 +143,46 @@ export default function SettingsPage() {
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
         <p className="text-muted-foreground">
-          Configure which folders, paths, and file types are being monitored.
+          Configure branding, monitored paths, and file types.
         </p>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Branding</CardTitle>
+          <CardDescription>Customize the look and feel of your application.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+            <div className="space-y-2">
+                <Label htmlFor="brand-name">Brand Name</Label>
+                <div className="flex gap-2">
+                    <Input id="brand-name" value={localBrandName} onChange={handleBrandNameChange} />
+                    <Button onClick={handleBrandNameSave}>Save</Button>
+                </div>
+            </div>
+            <div className="space-y-2">
+                <Label>Logo</Label>
+                <div className="flex items-center gap-4">
+                    <div className="relative h-16 w-16 rounded-md border p-1">
+                      {logo ? (
+                        <Image src={logo} alt="Brand Logo" layout="fill" objectFit="contain" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-muted">
+                           <UploadCloud className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    <Input id="logo-upload" type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                    <Button asChild variant="outline">
+                        <label htmlFor="logo-upload">
+                            <UploadCloud className="mr-2 h-4 w-4" />
+                            Upload Logo
+                        </label>
+                    </Button>
+                </div>
+            </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -230,7 +299,6 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
-
     </motion.div>
   );
 }

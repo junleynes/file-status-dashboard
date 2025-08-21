@@ -7,14 +7,13 @@ import {
   Sidebar,
   SidebarInset,
   SidebarContent,
-  SidebarHeader,
-  SidebarFooter,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
+import { useBranding } from '@/hooks/use-branding';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,6 +35,7 @@ import { BrandLogo } from './brand-logo';
 
 function Header() {
   const { user, logout } = useAuth();
+  const { brandName } = useBranding();
   const router = useRouter();
   const { setTheme } = useTheme();
 
@@ -49,7 +49,7 @@ function Header() {
        <div className="flex items-center gap-2">
          <SidebarTrigger className="md:hidden" />
          <BrandLogo className="h-6 w-6 text-primary" />
-         <h1 className="text-lg font-semibold">Your Brand</h1>
+         <h1 className="text-lg font-semibold">{brandName}</h1>
        </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -104,6 +104,7 @@ function Header() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const { brandingLoading } = useBranding();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -113,7 +114,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, pathname, router]);
 
-  if (loading) {
+  if (loading || brandingLoading) {
     return (
        <div className="flex h-screen w-full items-center justify-center">
          <div className="flex flex-col items-center gap-4">

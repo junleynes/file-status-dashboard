@@ -1,7 +1,15 @@
 import * as React from 'react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { useBranding } from '@/hooks/use-branding';
 
 export function BrandLogo({ className, ...props }: React.SVGProps<SVGSVGElement>) {
+    const { logo } = useBranding();
+
+    if (logo) {
+        return <Image src={logo} alt="Brand Logo" className={cn("h-6 w-6", className)} width={24} height={24} />;
+    }
+
     return (
         <svg
             xmlns="http://www.w3.org/2000/svg"

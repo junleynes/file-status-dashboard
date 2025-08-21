@@ -3,6 +3,7 @@ import './globals.css';
 import { Inter } from 'next/font/google';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/auth-context';
+import { BrandingProvider } from '@/contexts/branding-context';
 import { AppShell } from '@/components/app-shell';
 import { ThemeProvider } from '@/components/theme-provider';
 
@@ -33,7 +34,9 @@ export default function RootLayout({
             disableTransitionOnChange
         >
           <AuthProvider>
-            <AppShell>{children}</AppShell>
+            <BrandingProvider>
+              <AppShell>{children}</AppShell>
+            </BrandingProvider>
           </AuthProvider>
           <Toaster />
         </ThemeProvider>
