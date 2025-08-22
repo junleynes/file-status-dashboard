@@ -15,14 +15,12 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from '@/hooks/use-toast';
 import { BrandLogo } from '@/components/brand-logo';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('admin@example.com');
   const [password, setPassword] = useState('password123');
-  const [role, setRole] = useState<'admin' | 'user'>('admin');
   const { login } = useAuth();
   const { brandName } = useBranding();
   const router = useRouter();
@@ -38,9 +36,16 @@ export default function LoginPage() {
       });
       return;
     }
-    // Password check is simulated
-    login(email, role);
-    router.push('/dashboard');
+    const success = login(email, password);
+    if(success) {
+        router.push('/dashboard');
+    } else {
+        toast({
+            title: "Login Failed",
+            description: "Invalid email or password.",
+            variant: "destructive",
+        });
+    }
   };
 
   return (
@@ -75,24 +80,6 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required 
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <RadioGroup
-                defaultValue="admin"
-                className="flex gap-4"
-                value={role}
-                onValueChange={(value: 'admin' | 'user') => setRole(value)}
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="admin" id="admin" />
-                  <Label htmlFor="admin">Admin</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="user" id="user" />
-                  <Label htmlFor="user">User</Label>
-                </div>
-              </RadioGroup>
             </div>
           </CardContent>
           <CardFooter>

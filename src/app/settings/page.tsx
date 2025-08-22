@@ -9,14 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { initialMonitoredPaths, initialMonitoredExtensions } from "@/lib/mock-data";
-import type { MonitoredPath } from "@/types";
-import { PlusCircle, Trash2, UploadCloud } from "lucide-react";
+import type { MonitoredPath, User } from "@/types";
+import { PlusCircle, Trash2, UploadCloud, UserPlus, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export default function SettingsPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, users, addUser, removeUser } = useAuth();
   const { brandName, logo, setBrandName, setLogo } = useBranding();
   const router = useRouter();
 
@@ -27,6 +28,11 @@ export default function SettingsPage() {
   const [extensions, setExtensions] = useState<string[]>(initialMonitoredExtensions);
   const [newExtension, setNewExtension] = useState('');
   const [localBrandName, setLocalBrandName] = useState(brandName);
+
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserRole, setNewUserRole] = useState<'user' | 'admin'>('user');
 
   const { toast } = useToast();
 
@@ -129,6 +135,59 @@ export default function SettingsPage() {
     });
   }
 
+  const handleAddUser = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserName || !newUserEmail || !newUserPassword) {
+      toast({
+        title: "Missing User Information",
+        description: "Please fill out all fields to add a user.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const success = addUser({
+      id: crypto.randomUUID(),
+      name: newUserName,
+      email: newUserEmail,
+      password: newUserPassword,
+      role: newUserRole,
+    });
+
+    if (success) {
+      toast({
+        title: "User Added",
+        description: `User ${newUserName} has been added successfully.`,
+      });
+      setNewUserName('');
+      setNewUserEmail('');
+      setNewUserPassword('');
+      setNewUserRole('user');
+    } else {
+      toast({
+        title: "Error",
+        description: "A user with this email already exists.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRemoveUser = (userId: string) => {
+    if (user?.id === userId) {
+      toast({
+        title: "Cannot Remove Self",
+        description: "You cannot remove your own user account.",
+        variant: "destructive",
+      });
+      return;
+    }
+    removeUser(userId);
+    toast({
+      title: "User Removed",
+      description: "The user has been removed successfully.",
+      variant: "destructive",
+    });
+  };
+
   if (loading || user?.role !== 'admin') {
     return null;
   }
@@ -183,6 +242,76 @@ export default function SettingsPage() {
             </div>
         </CardContent>
       </Card>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>User Management</CardTitle>
+          <CardDescription>Add, remove, and manage user accounts.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleAddUser} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 items-end">
+              <div className="space-y-2">
+                  <Label htmlFor="new-user-name">Name</Label>
+                  <Input id="new-user-name" placeholder="John Doe" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                  <Label htmlFor="new-user-email">Email</Label>
+                  <Input id="new-user-email" type="email" placeholder="user@example.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                  <Label htmlFor="new-user-password">Password</Label>
+                  <Input id="new-user-password" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                  <Label>Role</Label>
+                  <RadioGroup value={newUserRole} onValueChange={(v: 'user'|'admin') => setNewUserRole(v)} className="flex gap-4 pt-2">
+                      <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="user" id="role-user" />
+                          <Label htmlFor="role-user">User</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="admin" id="role-admin" />
+                          <Label htmlFor="role-admin">Admin</Label>
+                      </div>
+                  </RadioGroup>
+              </div>
+              <Button type="submit" className="w-full lg:col-span-4">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add User
+              </Button>
+          </form>
+
+          <div className="space-y-2 rounded-lg border p-2">
+            <h3 className="text-sm font-medium px-2 pt-1 flex items-center gap-2"><Users className="h-4 w-4" /> Current Users</h3>
+            <AnimatePresence>
+                {users.length > 0 ? (
+                    users.map((u: User) => (
+                        <motion.div
+                            key={u.id}
+                            layout
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.3 }}
+                            className="flex items-center justify-between rounded-md p-2 hover:bg-muted/50"
+                        >
+                            <div className="flex flex-col">
+                                <p className="font-medium text-sm">{u.name} <span className="text-xs text-muted-foreground capitalize">({u.role})</span></p>
+                                <p className="text-xs text-muted-foreground">{u.email}</p>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveUser(u.id)} disabled={user?.id === u.id}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                        </motion.div>
+                    ))
+                ) : (
+                    <div className="text-center text-muted-foreground p-4">No users found.</div>
+                )}
+            </AnimatePresence>
+          </div>
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardHeader>
