@@ -1,56 +1,54 @@
 "use client";
 
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
-
-const DEFAULT_BRAND_NAME = 'Your Brand';
-const BRAND_NAME_STORAGE_KEY = 'file-tracker-brand-name';
-const LOGO_STORAGE_KEY = 'file-tracker-logo';
+import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { readDb, writeDb } from '@/lib/db';
+import type { BrandingSettings } from '@/types';
 
 interface BrandingContextType {
   brandName: string;
   logo: string | null;
   brandingLoading: boolean;
-  setBrandName: (name: string) => void;
-  setLogo: (logo: string | null) => void;
+  setBrandName: (name: string) => Promise<void>;
+  setLogo: (logo: string | null) => Promise<void>;
 }
 
 export const BrandingContext = createContext<BrandingContextType | undefined>(undefined);
 
 export function BrandingProvider({ children }: { children: ReactNode }) {
-  const [brandName, setBrandNameState] = useState<string>(DEFAULT_BRAND_NAME);
+  const [brandName, setBrandNameState] = useState<string>('Your Brand');
   const [logo, setLogoState] = useState<string | null>(null);
   const [brandingLoading, setBrandingLoading] = useState(true);
 
-  useEffect(() => {
+  const syncBrandingFromDb = useCallback(async () => {
     try {
-      const storedName = localStorage.getItem(BRAND_NAME_STORAGE_KEY);
-      const storedLogo = localStorage.getItem(LOGO_STORAGE_KEY);
-
-      if (storedName) {
-        setBrandNameState(storedName);
-      }
-      if (storedLogo) {
-        setLogoState(storedLogo);
-      }
+        const db = await readDb();
+        if (db.branding) {
+            setBrandNameState(db.branding.brandName);
+            setLogoState(db.branding.logo);
+        }
     } catch (error) {
-        console.error("Failed to load branding from local storage", error);
+        console.error("Failed to load branding from DB", error);
     } finally {
         setBrandingLoading(false);
     }
   }, []);
 
-  const setBrandName = (name: string) => {
+  useEffect(() => {
+    syncBrandingFromDb();
+  }, [syncBrandingFromDb]);
+
+  const setBrandName = async (name: string) => {
     setBrandNameState(name);
-    localStorage.setItem(BRAND_NAME_STORAGE_KEY, name);
+    const db = await readDb();
+    const newBranding: BrandingSettings = { ...db.branding, brandName: name };
+    await writeDb({ ...db, branding: newBranding });
   };
 
-  const setLogo = (logoData: string | null) => {
+  const setLogo = async (logoData: string | null) => {
     setLogoState(logoData);
-    if (logoData) {
-      localStorage.setItem(LOGO_STORAGE_KEY, logoData);
-    } else {
-      localStorage.removeItem(LOGO_STORAGE_KEY);
-    }
+    const db = await readDb();
+    const newBranding: BrandingSettings = { ...db.branding, logo: logoData };
+    await writeDb({ ...db, branding: newBranding });
   };
   
   const value = { brandName, logo, brandingLoading, setBrandName, setLogo };

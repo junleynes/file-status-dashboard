@@ -19,3 +19,28 @@ export type MonitoredPath = {
   path: string;
   label: string;
 };
+
+export type CleanupSettings = {
+  status: {
+    value: string;
+    unit: 'hours' | 'days';
+  };
+  files: {
+    value: string;
+    unit: 'hours' | 'days';
+  }
+}
+
+export type BrandingSettings = {
+  brandName: string;
+  logo: string | null;
+}
+
+export type Database = {
+    users: User[];
+    branding: BrandingSettings;
+    monitoredPaths: MonitoredPath[];
+    monitoredExtensions: string[];
+    fileStatuses: FileStatus[];
+    cleanupSettings: CleanupSettings;
+}

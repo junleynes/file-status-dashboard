@@ -21,12 +21,13 @@ import { BrandLogo } from '@/components/brand-logo';
 export default function LoginPage() {
   const [email, setEmail] = useState('admin@example.com');
   const [password, setPassword] = useState('password123');
+  const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const { brandName } = useBranding();
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
       toast({
@@ -36,7 +37,10 @@ export default function LoginPage() {
       });
       return;
     }
-    const success = login(email, password);
+    setIsLoading(true);
+    const success = await login(email, password);
+    setIsLoading(false);
+
     if(success) {
         router.push('/dashboard');
     } else {
@@ -69,6 +73,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
@@ -78,12 +83,15 @@ export default function LoginPage() {
                 type="password" 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                required 
+                required
+                disabled={isLoading}
               />
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full">Sign In</Button>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Signing In...' : 'Sign In'}
+            </Button>
           </CardFooter>
         </form>
       </Card>

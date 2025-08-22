@@ -1,77 +1,41 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { FileStatusTable } from "@/components/file-status-table";
 import { useAuth } from "@/hooks/use-auth";
 import type { FileStatus } from "@/types";
-import { initialFileStatuses } from "@/lib/mock-data";
 import { Trash2, Search, X, CheckCircle2, AlertTriangle, Loader } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { clearAllFileStatuses, simulateFileProcessing } from "@/lib/actions";
+import { readDb } from "@/lib/db";
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [files, setFiles] = useState<FileStatus[]>(initialFileStatuses);
+  const [files, setFiles] = useState<FileStatus[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<FileStatus['status'] | 'all'>('all');
+  const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedFiles = localStorage.getItem('file-statuses');
-      if (storedFiles) {
-        setFiles(JSON.parse(storedFiles));
-      }
-    }
+    const fetchFiles = async () => {
+      const db = await readDb();
+      setFiles(db.fileStatuses);
+    };
+    fetchFiles();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem('file-statuses', JSON.stringify(files));
-  }, [files]);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setFiles(currentFiles => {
-        const newFiles = [...currentFiles];
-        const processingFiles = newFiles.filter(f => f.status === 'processing');
-        
-        // Randomly decide to process a file or add a new one
-        if (processingFiles.length > 0 && Math.random() > 0.3) {
-            // Process an existing file
-            const fileToProcessIndex = newFiles.findIndex(f => f.id === processingFiles[0].id);
-            if (fileToProcessIndex !== -1) {
-                const outcome = Math.random();
-                if (outcome < 0.2) { // 20% chance of failure
-                    newFiles[fileToProcessIndex] = {
-                        ...newFiles[fileToProcessIndex],
-                        status: 'failed',
-                        source: 'Failed Folder',
-                        lastUpdated: new Date().toISOString()
-                    };
-                } else { // 80% chance of success
-                    newFiles[fileToProcessIndex] = {
-                        ...newFiles[fileToProcessIndex],
-                        status: 'published',
-                        lastUpdated: new Date().toISOString()
-                    };
-                }
-            }
-        } else {
-            // Add a new file
-            const newFile: FileStatus = {
-              id: crypto.randomUUID(),
-              name: `New_Ingest_${Math.floor(Math.random() * 1000)}.mxf`,
-              status: 'processing',
-              source: 'Main Import',
-              lastUpdated: new Date().toISOString(),
-            };
-            newFiles.push(newFile);
-        }
-
-        return newFiles.sort((a,b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
+      startTransition(async () => {
+        await simulateFileProcessing();
+        const db = await readDb();
+        setFiles(db.fileStatuses);
       });
     }, 5000); // Update every 5 seconds
 
@@ -79,10 +43,13 @@ export default function DashboardPage() {
   }, []);
 
   const handleClearAll = () => {
-    setFiles([]);
-    toast({
-      title: "Database Cleared",
-      description: "All file statuses have been removed.",
+    startTransition(async () => {
+      await clearAllFileStatuses();
+      setFiles([]);
+      toast({
+        title: "Database Cleared",
+        description: "All file statuses have been removed.",
+      });
     });
   };
 
@@ -117,9 +84,9 @@ export default function DashboardPage() {
           </p>
         </div>
         {user?.role === 'admin' && (
-          <Button variant="destructive" onClick={handleClearAll}>
+          <Button variant="destructive" onClick={handleClearAll} disabled={isPending}>
             <Trash2 className="mr-2 h-4 w-4" />
-            Clear All
+            {isPending ? "Clearing..." : "Clear All"}
           </Button>
         )}
       </div>

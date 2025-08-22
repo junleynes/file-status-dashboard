@@ -46,26 +46,16 @@ import { BrandLogo } from './brand-logo';
 import { useToast } from '@/hooks/use-toast';
 
 function ChangePasswordDialog() {
-  const { user, updateUserPassword, login } = useAuth();
+  const { user, updateOwnPassword } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-
-    // Verify current password
-    if (!login(user.email, currentPassword)) {
-      toast({
-        title: "Error",
-        description: "Your current password is not correct.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     if (newPassword.length < 6) {
       toast({
@@ -85,15 +75,24 @@ function ChangePasswordDialog() {
       return;
     }
     
-    updateUserPassword(user.id, newPassword);
-    toast({
-      title: "Success",
-      description: "Your password has been changed successfully.",
-    });
-    setIsOpen(false);
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+    const success = await updateOwnPassword(user.id, currentPassword, newPassword);
+    
+    if (success) {
+      toast({
+        title: "Success",
+        description: "Your password has been changed successfully.",
+      });
+      setIsOpen(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } else {
+       toast({
+        title: "Error",
+        description: "Your current password is not correct.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

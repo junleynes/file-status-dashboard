@@ -1,0 +1,40 @@
+{
+  "users": [
+    {
+      "id": "admin-user-01",
+      "name": "Admin User",
+      "email": "admin@example.com",
+      "password": "password123",
+      "role": "admin"
+    }
+  ],
+  "branding": {
+    "brandName": "Your Brand",
+    "logo": null
+  },
+  "monitoredPaths": [
+    { "id": "1", "path": "/mnt/network-storage/import", "label": "Main Import" },
+    { "id": "2", "path": "/mnt/network-storage/failed", "label": "Failed Folder" },
+    { "id": "3", "path": "C:\\Users\\Default\\Documents\\local-import", "label": "Local Import" }
+  ],
+  "monitoredExtensions": ["mov", "wav", "pdf", "mp4", "zip", "ae", "cube", "mxf"],
+  "fileStatuses": [
+    { "id": "1", "name": "Project_Alpha_Render.mov", "status": "processing", "source": "Main Import", "lastUpdated": "2024-08-01T12:00:00.000Z" },
+    { "id": "2", "name": "Scene_04_Take_2.wav", "status": "published", "source": "Main Import", "lastUpdated": "2024-08-01T11:00:00.000Z" },
+    { "id": "3", "name": "Client_Feedback_Round2.pdf", "status": "published", "source": "Local Import", "lastUpdated": "2024-08-01T12:58:00.000Z" },
+    { "id": "4", "name": "Final_Cut_V3.mp4", "status": "failed", "source": "Failed Folder", "lastUpdated": "2024-07-31T13:00:00.000Z" },
+    { "id": "5", "name": "Assets_Pack.zip", "status": "published", "source": "Main Import", "lastUpdated": "2024-07-30T13:00:00.000Z" },
+    { "id": "6", "name": "Lower_Thirds.ae", "status": "processing", "source": "Local Import", "lastUpdated": "2024-08-01T12:59:00.000Z" },
+    { "id": "7", "name": "Color_Grade_LUT.cube", "status": "published", "source": "Main Import", "lastUpdated": "2024-07-29T13:00:00.000Z" }
+  ],
+   "cleanupSettings": {
+    "status": {
+      "value": "7",
+      "unit": "days"
+    },
+    "files": {
+      "value": "30",
+      "unit": "days"
+    }
+  }
+}

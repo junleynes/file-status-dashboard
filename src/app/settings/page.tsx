@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
@@ -8,7 +8,6 @@ import { useBranding } from "@/hooks/use-branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { initialMonitoredPaths, initialMonitoredExtensions } from "@/lib/mock-data";
 import type { MonitoredPath, User } from "@/types";
 import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -22,21 +21,27 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
+import { readDb } from "@/lib/db";
+import { 
+    addMonitoredPath, 
+    removeMonitoredPath, 
+    addMonitoredExtension,
+    removeMonitoredExtension,
+    updateCleanupSettings
+} from "@/lib/actions";
 
 export default function SettingsPage() {
   const { user, loading, users, addUser, removeUser, updateUserPassword } = useAuth();
   const { brandName, logo, setBrandName, setLogo } = useBranding();
   const router = useRouter();
 
-  const [paths, setPaths] = useState<MonitoredPath[]>(initialMonitoredPaths);
+  const [paths, setPaths] = useState<MonitoredPath[]>([]);
   const [newPath, setNewPath] = useState('');
   const [newLabel, setNewLabel] = useState('');
 
-  const [extensions, setExtensions] = useState<string[]>(initialMonitoredExtensions);
+  const [extensions, setExtensions] = useState<string[]>([]);
   const [newExtension, setNewExtension] = useState('');
   const [localBrandName, setLocalBrandName] = useState(brandName);
 
@@ -54,6 +59,7 @@ export default function SettingsPage() {
   const [fileCleanupValue, setFileCleanupValue] = useState('30');
   const [fileCleanupUnit, setFileCleanupUnit] = useState<'hours' | 'days'>('days');
 
+  const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -68,45 +74,43 @@ export default function SettingsPage() {
   }, [user, loading, router, toast]);
 
   useEffect(() => {
-    // Load cleanup settings from local storage
-    const statusVal = localStorage.getItem('status-cleanup-value');
-    const statusUnit = localStorage.getItem('status-cleanup-unit');
-    const fileVal = localStorage.getItem('file-cleanup-value');
-    const fileUnit = localStorage.getItem('file-cleanup-unit');
+    const fetchData = async () => {
+        const db = await readDb();
+        setPaths(db.monitoredPaths);
+        setExtensions(db.monitoredExtensions);
+        setLocalBrandName(db.branding.brandName);
+        setStatusCleanupValue(db.cleanupSettings.status.value);
+        setStatusCleanupUnit(db.cleanupSettings.status.unit);
+        setFileCleanupValue(db.cleanupSettings.files.value);
+        setFileCleanupUnit(db.cleanupSettings.files.unit);
+    }
+    fetchData();
+  }, [])
 
-    if (statusVal) setStatusCleanupValue(statusVal);
-    if (statusUnit) setStatusCleanupUnit(statusUnit as 'hours' | 'days');
-    if (fileVal) setFileCleanupValue(fileVal);
-    if (fileUnit) setFileCleanupUnit(fileUnit as 'hours' | 'days');
-  }, []);
 
   const handleAddPath = (e: React.FormEvent) => {
     e.preventDefault();
     if (newPath.trim() === '' || newLabel.trim() === '') {
-        toast({
-            title: "Missing Information",
-            description: "Please provide both a path and a label.",
-            variant: "destructive",
-        });
+        toast({ title: "Missing Information", description: "Please provide both a path and a label.", variant: "destructive" });
         return;
     }
-    setPaths(prev => [...prev, { id: crypto.randomUUID(), path: newPath, label: newLabel }]);
-    setNewPath('');
-    setNewLabel('');
-    toast({
-        title: "Path Added",
-        description: `Successfully added "${newPath}" to monitored paths.`,
-      });
+    startTransition(async () => {
+        const newPathData = { id: crypto.randomUUID(), path: newPath, label: newLabel };
+        await addMonitoredPath(newPathData);
+        setPaths(prev => [...prev, newPathData]);
+        setNewPath('');
+        setNewLabel('');
+        toast({ title: "Path Added", description: `Successfully added "${newPath}" to monitored paths.` });
+    });
   };
 
   const handleRemovePath = (id: string) => {
     const pathToRemove = paths.find(p => p.id === id);
-    setPaths(prev => prev.filter(p => p.id !== id));
-    toast({
-        title: "Path Removed",
-        description: `Successfully removed "${pathToRemove?.path}" from monitored paths.`,
-        variant: 'destructive'
-      });
+    startTransition(async () => {
+        await removeMonitoredPath(id);
+        setPaths(prev => prev.filter(p => p.id !== id));
+        toast({ title: "Path Removed", description: `Successfully removed "${pathToRemove?.path}" from monitored paths.`, variant: 'destructive' });
+    });
   };
 
   const handleAddExtension = (e: React.FormEvent) => {
@@ -117,27 +121,22 @@ export default function SettingsPage() {
         cleanExtension = cleanExtension.substring(1);
     }
     if (extensions.includes(cleanExtension)) {
-        toast({
-            title: "Duplicate Extension",
-            description: `The extension ".${cleanExtension}" is already being monitored.`,
-            variant: "destructive",
-        });
+        toast({ title: "Duplicate Extension", description: `The extension ".${cleanExtension}" is already being monitored.`, variant: "destructive" });
         return;
     }
-    setExtensions(prev => [...prev, cleanExtension]);
-    setNewExtension('');
-    toast({
-        title: "Extension Added",
-        description: `Successfully added ".${cleanExtension}" to monitored extensions.`,
+     startTransition(async () => {
+        await addMonitoredExtension(cleanExtension);
+        setExtensions(prev => [...prev, cleanExtension]);
+        setNewExtension('');
+        toast({ title: "Extension Added", description: `Successfully added ".${cleanExtension}" to monitored extensions.`});
     });
   };
 
   const handleRemoveExtension = (ext: string) => {
-    setExtensions(prev => prev.filter(e => e !== ext));
-    toast({
-        title: "Extension Removed",
-        description: `Successfully removed ".${ext}" from monitored extensions.`,
-        variant: "destructive",
+    startTransition(async () => {
+        await removeMonitoredExtension(ext);
+        setExtensions(prev => prev.filter(e => e !== ext));
+        toast({ title: "Extension Removed", description: `Successfully removed ".${ext}" from monitored extensions.`, variant: "destructive" });
     });
   };
 
@@ -146,10 +145,9 @@ export default function SettingsPage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setLogo(reader.result as string);
-        toast({
-            title: "Logo Updated",
-            description: "Your new brand logo has been saved.",
+        startTransition(async () => {
+            await setLogo(reader.result as string);
+            toast({ title: "Logo Updated", description: "Your new brand logo has been saved." });
         });
       };
       reader.readAsDataURL(file);
@@ -157,11 +155,9 @@ export default function SettingsPage() {
   };
 
   const handleClearLogo = () => {
-    setLogo(null);
-    toast({
-        title: "Logo Cleared",
-        description: "The brand logo has been removed.",
-        variant: "destructive"
+    startTransition(async () => {
+        await setLogo(null);
+        toast({ title: "Logo Cleared", description: "The brand logo has been removed.", variant: "destructive" });
     });
   };
 
@@ -170,63 +166,47 @@ export default function SettingsPage() {
   }
 
   const handleBrandNameSave = () => {
-    setBrandName(localBrandName);
-    toast({
-        title: "Brand Name Updated",
-        description: "Your new brand name has been saved.",
+     startTransition(async () => {
+        await setBrandName(localBrandName);
+        toast({ title: "Brand Name Updated", description: "Your new brand name has been saved." });
     });
   }
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUserName || !newUserEmail || !newUserPassword) {
-      toast({
-        title: "Missing User Information",
-        description: "Please fill out all fields to add a user.",
-        variant: "destructive",
-      });
+      toast({ title: "Missing User Information", description: "Please fill out all fields to add a user.", variant: "destructive" });
       return;
     }
-    const success = addUser({
-      id: crypto.randomUUID(),
-      name: newUserName,
-      email: newUserEmail,
-      password: newUserPassword,
-      role: newUserRole,
-    });
+    startTransition(async () => {
+        const success = await addUser({
+            id: crypto.randomUUID(),
+            name: newUserName,
+            email: newUserEmail,
+            password: newUserPassword,
+            role: newUserRole,
+        });
 
-    if (success) {
-      toast({
-        title: "User Added",
-        description: `User ${newUserName} has been added successfully.`,
-      });
-      setNewUserName('');
-      setNewUserEmail('');
-      setNewUserPassword('');
-      setNewUserRole('user');
-    } else {
-      toast({
-        title: "Error",
-        description: "A user with this email already exists.",
-        variant: "destructive",
-      });
-    }
+        if (success) {
+            toast({ title: "User Added", description: `User ${newUserName} has been added successfully.` });
+            setNewUserName('');
+            setNewUserEmail('');
+            setNewUserPassword('');
+            setNewUserRole('user');
+        } else {
+            toast({ title: "Error", description: "A user with this email already exists.", variant: "destructive" });
+        }
+    });
   };
 
   const handleRemoveUser = (userId: string) => {
     if (user?.id === userId) {
-      toast({
-        title: "Cannot Remove Self",
-        description: "You cannot remove your own user account.",
-        variant: "destructive",
-      });
+      toast({ title: "Cannot Remove Self", description: "You cannot remove your own user account.", variant: "destructive" });
       return;
     }
-    removeUser(userId);
-    toast({
-      title: "User Removed",
-      description: "The user has been removed successfully.",
-      variant: "destructive",
+    startTransition(async () => {
+        await removeUser(userId);
+        toast({ title: "User Removed", description: "The user has been removed successfully.", variant: "destructive" });
     });
   };
 
@@ -238,30 +218,24 @@ export default function SettingsPage() {
 
   const handlePasswordReset = () => {
     if (!selectedUser || !newPassword) {
-      toast({
-        title: "Error",
-        description: "Please enter a new password.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Please enter a new password.", variant: "destructive" });
       return;
     }
-    updateUserPassword(selectedUser.id, newPassword);
-    toast({
-      title: "Password Reset",
-      description: `Password for ${selectedUser.name} has been updated.`,
+    startTransition(async () => {
+        await updateUserPassword(selectedUser.id, newPassword);
+        toast({ title: "Password Reset", description: `Password for ${selectedUser.name} has been updated.` });
+        setIsResetDialogOpen(false);
+        setSelectedUser(null);
     });
-    setIsResetDialogOpen(false);
-    setSelectedUser(null);
   };
 
   const handleSaveCleanupSettings = () => {
-    localStorage.setItem('status-cleanup-value', statusCleanupValue);
-    localStorage.setItem('status-cleanup-unit', statusCleanupUnit);
-    localStorage.setItem('file-cleanup-value', fileCleanupValue);
-    localStorage.setItem('file-cleanup-unit', fileCleanupUnit);
-    toast({
-        title: "Cleanup Settings Saved",
-        description: "Your cleanup preferences have been updated.",
+    startTransition(async () => {
+        await updateCleanupSettings({
+            status: { value: statusCleanupValue, unit: statusCleanupUnit },
+            files: { value: fileCleanupValue, unit: fileCleanupUnit }
+        });
+        toast({ title: "Cleanup Settings Saved", description: "Your cleanup preferences have been updated." });
     });
   }
 
@@ -293,8 +267,8 @@ export default function SettingsPage() {
             <div className="space-y-2">
                 <Label htmlFor="brand-name">Brand Name</Label>
                 <div className="flex gap-2">
-                    <Input id="brand-name" value={localBrandName} onChange={handleBrandNameChange} />
-                    <Button onClick={handleBrandNameSave}>Save</Button>
+                    <Input id="brand-name" value={localBrandName} onChange={handleBrandNameChange} disabled={isPending} />
+                    <Button onClick={handleBrandNameSave} disabled={isPending}>Save</Button>
                 </div>
             </div>
             <div className="space-y-2">
@@ -310,15 +284,15 @@ export default function SettingsPage() {
                       )}
                     </div>
                     <div className="flex gap-2">
-                        <Input id="logo-upload" type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-                        <Button asChild variant="outline">
+                        <Input id="logo-upload" type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" disabled={isPending} />
+                        <Button asChild variant="outline" disabled={isPending}>
                             <label htmlFor="logo-upload">
                                 <UploadCloud className="mr-2 h-4 w-4" />
                                 Upload Logo
                             </label>
                         </Button>
                         {logo && (
-                            <Button variant="destructive" onClick={handleClearLogo}>
+                            <Button variant="destructive" onClick={handleClearLogo} disabled={isPending}>
                                 <XCircle className="mr-2 h-4 w-4" />
                                 Clear Logo
                             </Button>
@@ -338,19 +312,19 @@ export default function SettingsPage() {
           <form onSubmit={handleAddUser} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 items-end">
               <div className="space-y-2">
                   <Label htmlFor="new-user-name">Name</Label>
-                  <Input id="new-user-name" placeholder="John Doe" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} />
+                  <Input id="new-user-name" placeholder="John Doe" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} disabled={isPending} />
               </div>
               <div className="space-y-2">
                   <Label htmlFor="new-user-email">Email</Label>
-                  <Input id="new-user-email" type="email" placeholder="user@example.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} />
+                  <Input id="new-user-email" type="email" placeholder="user@example.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} disabled={isPending} />
               </div>
               <div className="space-y-2">
                   <Label htmlFor="new-user-password">Password</Label>
-                  <Input id="new-user-password" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} />
+                  <Input id="new-user-password" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} disabled={isPending} />
               </div>
               <div className="space-y-2">
                   <Label>Role</Label>
-                  <RadioGroup value={newUserRole} onValueChange={(v: 'user'|'admin') => setNewUserRole(v)} className="flex gap-4 pt-2">
+                  <RadioGroup value={newUserRole} onValueChange={(v: 'user'|'admin') => setNewUserRole(v)} className="flex gap-4 pt-2" disabled={isPending}>
                       <div className="flex items-center space-x-2">
                           <RadioGroupItem value="user" id="role-user" />
                           <Label htmlFor="role-user">User</Label>
@@ -361,7 +335,7 @@ export default function SettingsPage() {
                       </div>
                   </RadioGroup>
               </div>
-              <Button type="submit" className="w-full lg:col-span-4">
+              <Button type="submit" className="w-full lg:col-span-4" disabled={isPending}>
                   <UserPlus className="mr-2 h-4 w-4" />
                   Add User
               </Button>
@@ -386,11 +360,11 @@ export default function SettingsPage() {
                                 <p className="text-xs text-muted-foreground">{u.email}</p>
                             </div>
                             <div className="flex items-center gap-1">
-                                <Button variant="outline" size="sm" onClick={() => handleOpenResetDialog(u)}>
+                                <Button variant="outline" size="sm" onClick={() => handleOpenResetDialog(u)} disabled={isPending}>
                                     <KeyRound className="mr-2 h-4 w-4" />
                                     Reset Password
                                 </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleRemoveUser(u.id)} disabled={user?.id === u.id}>
+                                <Button variant="ghost" size="icon" onClick={() => handleRemoveUser(u.id)} disabled={user?.id === u.id || isPending}>
                                     <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
                             </div>
@@ -419,6 +393,7 @@ export default function SettingsPage() {
                 placeholder="e.g., /mnt/storage/import or C:\\Users\\..."
                 value={newPath}
                 onChange={(e) => setNewPath(e.target.value)}
+                disabled={isPending}
                 />
             </div>
             <div className="space-y-2">
@@ -428,10 +403,11 @@ export default function SettingsPage() {
                 placeholder="e.g., Main Storage"
                 value={newLabel}
                 onChange={(e) => setNewLabel(e.target.value)}
+                disabled={isPending}
                 />
             </div>
             <div className="self-end">
-              <Button type="submit" className="w-full md:w-auto">
+              <Button type="submit" className="w-full md:w-auto" disabled={isPending}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Path
               </Button>
@@ -455,7 +431,7 @@ export default function SettingsPage() {
                                 <p className="font-mono text-sm">{path.path}</p>
                                 <p className="text-xs text-muted-foreground">{path.label}</p>
                             </div>
-                            <Button variant="ghost" size="icon" onClick={() => handleRemovePath(path.id)}>
+                            <Button variant="ghost" size="icon" onClick={() => handleRemovePath(path.id)} disabled={isPending}>
                                 <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                         </motion.div>
@@ -482,10 +458,11 @@ export default function SettingsPage() {
                 placeholder="e.g., mov, wav, pdf"
                 value={newExtension}
                 onChange={(e) => setNewExtension(e.target.value)}
+                disabled={isPending}
                 />
             </div>
             <div className="self-end">
-              <Button type="submit" className="w-full md:w-auto">
+              <Button type="submit" className="w-full md:w-auto" disabled={isPending}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Extension
               </Button>
@@ -507,7 +484,7 @@ export default function SettingsPage() {
                             className="flex items-center gap-1 rounded-full bg-secondary px-3 py-1 text-sm text-secondary-foreground"
                         >
                             <span>.{ext}</span>
-                            <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full" onClick={() => handleRemoveExtension(ext)}>
+                            <Button variant="ghost" size="icon" className="h-5 w-5 rounded-full" onClick={() => handleRemoveExtension(ext)} disabled={isPending}>
                                 <Trash2 className="h-3 w-3 text-destructive" />
                             </Button>
                         </motion.div>
@@ -536,8 +513,9 @@ export default function SettingsPage() {
                   value={statusCleanupValue}
                   onChange={(e) => setStatusCleanupValue(e.target.value)}
                   min="1"
+                  disabled={isPending}
                 />
-                <Select value={statusCleanupUnit} onValueChange={(v: 'hours'|'days') => setStatusCleanupUnit(v)}>
+                <Select value={statusCleanupUnit} onValueChange={(v: 'hours'|'days') => setStatusCleanupUnit(v)} disabled={isPending}>
                     <SelectTrigger className="w-[120px]">
                         <SelectValue />
                     </SelectTrigger>
@@ -558,8 +536,9 @@ export default function SettingsPage() {
                   value={fileCleanupValue}
                   onChange={(e) => setFileCleanupValue(e.target.value)}
                   min="1"
+                  disabled={isPending}
                 />
-                <Select value={fileCleanupUnit} onValueChange={(v: 'hours' | 'days') => setFileCleanupUnit(v)}>
+                <Select value={fileCleanupUnit} onValueChange={(v: 'hours' | 'days') => setFileCleanupUnit(v)} disabled={isPending}>
                     <SelectTrigger className="w-[120px]">
                         <SelectValue />
                     </SelectTrigger>
@@ -571,7 +550,7 @@ export default function SettingsPage() {
               </div>
               <p className="text-xs text-muted-foreground">Automatically delete files from their source folders after this period.</p>
           </div>
-          <Button onClick={handleSaveCleanupSettings}>
+          <Button onClick={handleSaveCleanupSettings} disabled={isPending}>
             <Clock className="mr-2 h-4 w-4" />
             Save Cleanup Settings
           </Button>
@@ -595,11 +574,12 @@ export default function SettingsPage() {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="Enter new password"
+              disabled={isPending}
             />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsResetDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handlePasswordReset}>Set Password</Button>
+            <Button onClick={handlePasswordReset} disabled={isPending}>Set Password</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
