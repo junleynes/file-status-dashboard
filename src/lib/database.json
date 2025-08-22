@@ -13,21 +13,133 @@
     "logo": null
   },
   "monitoredPaths": [
-    { "id": "1", "path": "/mnt/network-storage/import", "label": "Main Import" },
-    { "id": "2", "path": "/mnt/network-storage/failed", "label": "Failed Folder" },
-    { "id": "3", "path": "C:\\Users\\Default\\Documents\\local-import", "label": "Local Import" }
+    {
+      "id": "1",
+      "path": "/mnt/network-storage/import",
+      "label": "Main Import"
+    },
+    {
+      "id": "2",
+      "path": "/mnt/network-storage/failed",
+      "label": "Failed Folder"
+    },
+    {
+      "id": "3",
+      "path": "C:\\Users\\Default\\Documents\\local-import",
+      "label": "Local Import"
+    }
   ],
-  "monitoredExtensions": ["mov", "wav", "pdf", "mp4", "zip", "ae", "cube", "mxf"],
+  "monitoredExtensions": [
+    "mov",
+    "wav",
+    "pdf",
+    "mp4",
+    "zip",
+    "ae",
+    "cube",
+    "mxf"
+  ],
   "fileStatuses": [
-    { "id": "1", "name": "Project_Alpha_Render.mov", "status": "processing", "source": "Main Import", "lastUpdated": "2024-08-01T12:00:00.000Z" },
-    { "id": "2", "name": "Scene_04_Take_2.wav", "status": "published", "source": "Main Import", "lastUpdated": "2024-08-01T11:00:00.000Z" },
-    { "id": "3", "name": "Client_Feedback_Round2.pdf", "status": "published", "source": "Local Import", "lastUpdated": "2024-08-01T12:58:00.000Z" },
-    { "id": "4", "name": "Final_Cut_V3.mp4", "status": "failed", "source": "Failed Folder", "lastUpdated": "2024-07-31T13:00:00.000Z" },
-    { "id": "5", "name": "Assets_Pack.zip", "status": "published", "source": "Main Import", "lastUpdated": "2024-07-30T13:00:00.000Z" },
-    { "id": "6", "name": "Lower_Thirds.ae", "status": "processing", "source": "Local Import", "lastUpdated": "2024-08-01T12:59:00.000Z" },
-    { "id": "7", "name": "Color_Grade_LUT.cube", "status": "published", "source": "Main Import", "lastUpdated": "2024-07-29T13:00:00.000Z" }
+    {
+      "id": "5aec308e-9eff-4e6c-90e0-5ef4137507a1",
+      "name": "New_Ingest_383.mxf",
+      "status": "failed",
+      "source": "Failed Folder",
+      "lastUpdated": "2025-08-22T10:46:43.934Z"
+    },
+    {
+      "id": "8e6cef3e-99cf-4f54-9877-fdac9e315bf3",
+      "name": "New_Ingest_883.mxf",
+      "status": "published",
+      "source": "Main Import",
+      "lastUpdated": "2025-08-22T10:45:37.586Z"
+    },
+    {
+      "id": "f5d5324d-70ee-4c96-a788-cc736807f83a",
+      "name": "New_Ingest_803.mxf",
+      "status": "published",
+      "source": "Main Import",
+      "lastUpdated": "2025-08-22T10:45:27.546Z"
+    },
+    {
+      "id": "261127d0-3fb1-4ba8-9d37-a3776a0af842",
+      "name": "New_Ingest_292.mxf",
+      "status": "processing",
+      "source": "Main Import",
+      "lastUpdated": "2025-08-22T10:45:17.392Z"
+    },
+    {
+      "id": "3e965dc1-60c5-46e3-bf94-baa9bf4dc4e8",
+      "name": "New_Ingest_775.mxf",
+      "status": "published",
+      "source": "Main Import",
+      "lastUpdated": "2025-08-22T10:45:12.264Z"
+    },
+    {
+      "id": "2e3c7526-690f-46e2-99c1-7e653eac0108",
+      "name": "New_Ingest_141.mxf",
+      "status": "failed",
+      "source": "Failed Folder",
+      "lastUpdated": "2025-08-22T10:45:01.719Z"
+    },
+    {
+      "id": "a752737c-e03b-4278-8d33-51f39a86f30c",
+      "name": "New_Ingest_631.mxf",
+      "status": "failed",
+      "source": "Failed Folder",
+      "lastUpdated": "2025-08-22T10:44:51.572Z"
+    },
+    {
+      "id": "6",
+      "name": "Lower_Thirds.ae",
+      "status": "published",
+      "source": "Local Import",
+      "lastUpdated": "2025-08-22T10:44:41.245Z"
+    },
+    {
+      "id": "1",
+      "name": "Project_Alpha_Render.mov",
+      "status": "published",
+      "source": "Main Import",
+      "lastUpdated": "2025-08-22T10:44:36.082Z"
+    },
+    {
+      "id": "3",
+      "name": "Client_Feedback_Round2.pdf",
+      "status": "published",
+      "source": "Local Import",
+      "lastUpdated": "2024-08-01T12:58:00.000Z"
+    },
+    {
+      "id": "2",
+      "name": "Scene_04_Take_2.wav",
+      "status": "published",
+      "source": "Main Import",
+      "lastUpdated": "2024-08-01T11:00:00.000Z"
+    },
+    {
+      "id": "4",
+      "name": "Final_Cut_V3.mp4",
+      "status": "failed",
+      "source": "Failed Folder",
+      "lastUpdated": "2024-07-31T13:00:00.000Z"
+    },
+    {
+      "id": "5",
+      "name": "Assets_Pack.zip",
+      "status": "published",
+      "source": "Main Import",
+      "lastUpdated": "2024-07-30T13:00:00.000Z"
+    },
+    {
+      "id": "7",
+      "name": "Color_Grade_LUT.cube",
+      "status": "published",
+      "source": "Main Import",
+      "lastUpdated": "2024-07-29T13:00:00.000Z"
+    }
   ],
-   "cleanupSettings": {
+  "cleanupSettings": {
     "status": {
       "value": "7",
       "unit": "days"
