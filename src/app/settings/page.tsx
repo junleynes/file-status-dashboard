@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { initialMonitoredPaths, initialMonitoredExtensions } from "@/lib/mock-data";
 import type { MonitoredPath, User } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle } from "lucide-react";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 export default function SettingsPage() {
@@ -48,6 +49,11 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState('');
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
+  const [statusCleanupValue, setStatusCleanupValue] = useState('7');
+  const [statusCleanupUnit, setStatusCleanupUnit] = useState<'hours' | 'days'>('days');
+  const [fileCleanupValue, setFileCleanupValue] = useState('30');
+  const [fileCleanupUnit, setFileCleanupUnit] = useState<'hours' | 'days'>('days');
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -60,6 +66,19 @@ export default function SettingsPage() {
       router.push('/dashboard');
     }
   }, [user, loading, router, toast]);
+
+  useEffect(() => {
+    // Load cleanup settings from local storage
+    const statusVal = localStorage.getItem('status-cleanup-value');
+    const statusUnit = localStorage.getItem('status-cleanup-unit');
+    const fileVal = localStorage.getItem('file-cleanup-value');
+    const fileUnit = localStorage.getItem('file-cleanup-unit');
+
+    if (statusVal) setStatusCleanupValue(statusVal);
+    if (statusUnit) setStatusCleanupUnit(statusUnit as 'hours' | 'days');
+    if (fileVal) setFileCleanupValue(fileVal);
+    if (fileUnit) setFileCleanupUnit(fileUnit as 'hours' | 'days');
+  }, []);
 
   const handleAddPath = (e: React.FormEvent) => {
     e.preventDefault();
@@ -234,6 +253,17 @@ export default function SettingsPage() {
     setIsResetDialogOpen(false);
     setSelectedUser(null);
   };
+
+  const handleSaveCleanupSettings = () => {
+    localStorage.setItem('status-cleanup-value', statusCleanupValue);
+    localStorage.setItem('status-cleanup-unit', statusCleanupUnit);
+    localStorage.setItem('file-cleanup-value', fileCleanupValue);
+    localStorage.setItem('file-cleanup-unit', fileCleanupUnit);
+    toast({
+        title: "Cleanup Settings Saved",
+        description: "Your cleanup preferences have been updated.",
+    });
+  }
 
 
   if (loading || user?.role !== 'admin') {
@@ -491,6 +521,64 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Cleanup Settings</CardTitle>
+          <CardDescription>Configure automatic cleanup rules for file statuses and monitored folders.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+              <Label>Clear status from dashboard after</Label>
+              <div className="flex items-center gap-2">
+                <Input 
+                  type="number" 
+                  className="w-24"
+                  value={statusCleanupValue}
+                  onChange={(e) => setStatusCleanupValue(e.target.value)}
+                  min="1"
+                />
+                <Select value={statusCleanupUnit} onValueChange={(v: 'hours'|'days') => setStatusCleanupUnit(v)}>
+                    <SelectTrigger className="w-[120px]">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="hours">Hours</SelectItem>
+                        <SelectItem value="days">Days</SelectItem>
+                    </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">Automatically remove file status entries from the dashboard after this period.</p>
+          </div>
+           <div className="space-y-2">
+              <Label>Clear files from monitored folders after</Label>
+              <div className="flex items-center gap-2">
+                <Input 
+                  type="number" 
+                  className="w-24"
+                  value={fileCleanupValue}
+                  onChange={(e) => setFileCleanupValue(e.target.value)}
+                  min="1"
+                />
+                <Select value={fileCleanupUnit} onValueChange={(v: 'hours' | 'days') => setFileCleanupUnit(v)}>
+                    <SelectTrigger className="w-[120px]">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="hours">Hours</SelectItem>
+                        <SelectItem value="days">Days</SelectItem>
+                    </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">Automatically delete files from their source folders after this period.</p>
+          </div>
+          <Button onClick={handleSaveCleanupSettings}>
+            <Clock className="mr-2 h-4 w-4" />
+            Save Cleanup Settings
+          </Button>
+        </CardContent>
+      </Card>
+
+
        <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -518,5 +606,3 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
-
-    
