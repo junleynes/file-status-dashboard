@@ -10,14 +10,24 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { initialMonitoredPaths, initialMonitoredExtensions } from "@/lib/mock-data";
 import type { MonitoredPath, User } from "@/types";
-import { PlusCircle, Trash2, UploadCloud, UserPlus, Users } from "lucide-react";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+
 
 export default function SettingsPage() {
-  const { user, loading, users, addUser, removeUser } = useAuth();
+  const { user, loading, users, addUser, removeUser, updateUserPassword } = useAuth();
   const { brandName, logo, setBrandName, setLogo } = useBranding();
   const router = useRouter();
 
@@ -33,6 +43,10 @@ export default function SettingsPage() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState<'user' | 'admin'>('user');
+
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
   const { toast } = useToast();
 
@@ -188,6 +202,31 @@ export default function SettingsPage() {
     });
   };
 
+  const handleOpenResetDialog = (userToReset: User) => {
+    setSelectedUser(userToReset);
+    setNewPassword('');
+    setIsResetDialogOpen(true);
+  };
+
+  const handlePasswordReset = () => {
+    if (!selectedUser || !newPassword) {
+      toast({
+        title: "Error",
+        description: "Please enter a new password.",
+        variant: "destructive",
+      });
+      return;
+    }
+    updateUserPassword(selectedUser.id, newPassword);
+    toast({
+      title: "Password Reset",
+      description: `Password for ${selectedUser.name} has been updated.`,
+    });
+    setIsResetDialogOpen(false);
+    setSelectedUser(null);
+  };
+
+
   if (loading || user?.role !== 'admin') {
     return null;
   }
@@ -299,9 +338,15 @@ export default function SettingsPage() {
                                 <p className="font-medium text-sm">{u.name} <span className="text-xs text-muted-foreground capitalize">({u.role})</span></p>
                                 <p className="text-xs text-muted-foreground">{u.email}</p>
                             </div>
-                            <Button variant="ghost" size="icon" onClick={() => handleRemoveUser(u.id)} disabled={user?.id === u.id}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                                <Button variant="outline" size="sm" onClick={() => handleOpenResetDialog(u)}>
+                                    <KeyRound className="mr-2 h-4 w-4" />
+                                    Reset Password
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleRemoveUser(u.id)} disabled={user?.id === u.id}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                            </div>
                         </motion.div>
                     ))
                 ) : (
@@ -428,6 +473,31 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+       <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password for {selectedUser?.name}</DialogTitle>
+            <DialogDescription>
+              Enter a new password for the selected user. They will be able to use this password to log in next time.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="reset-password">New Password</Label>
+            <Input
+              id="reset-password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Enter new password"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsResetDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handlePasswordReset}>Set Password</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

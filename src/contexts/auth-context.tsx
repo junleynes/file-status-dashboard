@@ -14,6 +14,7 @@ interface AuthContextType {
   logout: () => void;
   addUser: (user: User) => boolean;
   removeUser: (userId: string) => void;
+  updateUserPassword: (userId: string, newPassword: string) => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -89,9 +90,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsers(updatedUsers);
     localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
   };
+  
+  const updateUserPassword = (userId: string, newPassword: string) => {
+    const updatedUsers = users.map(u => 
+      u.id === userId ? { ...u, password: newPassword } : u
+    );
+    setUsers(updatedUsers);
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers));
+  };
 
 
-  const value = { user, users, loading, login, logout, addUser, removeUser };
+  const value = { user, users, loading, login, logout, addUser, removeUser, updateUserPassword };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
