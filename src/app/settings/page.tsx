@@ -34,7 +34,7 @@ import {
 
 export default function SettingsPage() {
   const { user, loading, users, addUser, removeUser, updateUserPassword, refreshUsers } = useAuth();
-  const { brandName, logo, setBrandName, setLogo, refreshBranding } = useBranding();
+  const { brandName, logo, setBrandName, setLogo } = useBranding();
   const router = useRouter();
 
   const [paths, setPaths] = useState<MonitoredPath[]>([]);
@@ -171,7 +171,6 @@ export default function SettingsPage() {
   const handleBrandNameSave = () => {
      startTransition(async () => {
         await setBrandName(localBrandName);
-        await refreshBranding();
         toast({ title: "Brand Name Updated", description: "Your new brand name has been saved." });
     });
   }
@@ -272,7 +271,7 @@ export default function SettingsPage() {
                 <Label htmlFor="brand-name">Brand Name</Label>
                 <div className="flex gap-2">
                     <Input id="brand-name" value={localBrandName} onChange={handleBrandNameChange} disabled={isPending} />
-                    <Button onClick={handleBrandNameSave} disabled={isPending}>Save</Button>
+                    <Button onClick={handleBrandNameSave} disabled={isPending || localBrandName === brandName}>Save</Button>
                 </div>
             </div>
             <div className="space-y-2">
@@ -583,7 +582,7 @@ export default function SettingsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsResetDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handlePasswordReset} disabled={isPending}>Set Password</Button>
+            <Button onClick={handlePasswordReset} disabled={isPending || !newPassword}>Set Password</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -6,13 +6,6 @@
       "email": "admin@example.com",
       "password": "password123",
       "role": "admin"
-    },
-    {
-      "id": "7c3dd041-d701-4693-b781-0ac7188c6e9a",
-      "name": "Rodrigo Leynes Jr",
-      "email": "releynes@gmanetwork.com",
-      "password": "thousandsunny",
-      "role": "admin"
     }
   ],
   "branding": {
@@ -29,11 +22,6 @@
       "id": "2",
       "path": "/mnt/network-storage/failed",
       "label": "Failed Folder"
-    },
-    {
-      "id": "3",
-      "path": "C:\\Users\\Default\\Documents\\local-import",
-      "label": "Local Import"
     }
   ],
   "monitoredExtensions": [

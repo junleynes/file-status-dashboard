@@ -22,6 +22,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   const [brandingLoading, setBrandingLoading] = useState(true);
 
   const refreshBranding = useCallback(async () => {
+    setBrandingLoading(true);
     try {
         const db = await readDb();
         if (db.branding) {
@@ -41,12 +42,12 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
 
   const setBrandName = async (name: string) => {
     await updateBrandingSettings({ brandName: name, logo: logo });
-    setBrandNameState(name);
+    await refreshBranding();
   };
 
   const setLogo = async (logoData: string | null) => {
     await updateBrandingSettings({ brandName: brandName, logo: logoData });
-    setLogoState(logoData);
+    await refreshBranding();
   };
   
   const value = { brandName, logo, brandingLoading, setBrandName, setLogo, refreshBranding };
