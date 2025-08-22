@@ -22,8 +22,6 @@ export function FileStatusTable({ files }: FileStatusTableProps) {
     switch (status) {
       case 'processing':
         return 'bg-yellow-500/80 border-transparent text-white';
-      case 'transferred':
-        return 'bg-blue-500/80 border-transparent text-white'; 
       case 'failed':
         return 'bg-red-500/80 border-transparent text-white';
       case 'published':

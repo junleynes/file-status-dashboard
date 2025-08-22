@@ -6,7 +6,7 @@ import { FileStatusTable } from "@/components/file-status-table";
 import { useAuth } from "@/hooks/use-auth";
 import type { FileStatus } from "@/types";
 import { initialFileStatuses } from "@/lib/mock-data";
-import { Trash2, Search, X, CheckCircle2, AlertTriangle, FileUp, Loader } from "lucide-react";
+import { Trash2, Search, X, CheckCircle2, AlertTriangle, Loader } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -124,7 +124,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+       <div className="grid gap-4 md:grid-cols-3">
           <Card className="bg-yellow-500/20 dark:bg-yellow-500/10 border-yellow-500 text-yellow-900 dark:text-yellow-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Processing</CardTitle>
@@ -141,15 +141,6 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
                 <div className="text-2xl font-bold">{statusCounts.published || 0}</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-blue-500/20 dark:bg-blue-500/10 border-blue-500 text-blue-900 dark:text-blue-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Transferred</CardTitle>
-              <FileUp className="h-4 w-4 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">{statusCounts.transferred || 0}</div>
             </CardContent>
           </Card>
           <Card className="bg-red-500/20 dark:bg-red-500/10 border-red-500 text-red-900 dark:text-red-200">
@@ -187,7 +178,6 @@ export default function DashboardPage() {
                 <Button variant={statusFilter === 'all' ? 'default' : 'outline'} onClick={() => setStatusFilter('all')}>All</Button>
                 <Button variant={statusFilter === 'processing' ? 'secondary' : 'outline'} className={statusFilter === 'processing' ? 'bg-yellow-500/80 text-white' : ''} onClick={() => setStatusFilter('processing')}>Processing</Button>
                 <Button variant={statusFilter === 'published' ? 'secondary' : 'outline'} className={statusFilter === 'published' ? 'bg-green-500/80 text-white' : ''} onClick={() => setStatusFilter('published')}>Published</Button>
-                <Button variant={statusFilter === 'transferred' ? 'secondary' : 'outline'} className={statusFilter === 'transferred' ? 'bg-blue-500/80 text-white' : ''} onClick={() => setStatusFilter('transferred')}>Transferred</Button>
                 <Button variant={statusFilter === 'failed' ? 'destructive' : 'outline'} onClick={() => setStatusFilter('failed')}>Failed</Button>
             </div>
           </div>
