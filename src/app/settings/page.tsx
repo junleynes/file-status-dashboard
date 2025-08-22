@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { initialMonitoredPaths, initialMonitoredExtensions } from "@/lib/mock-data";
 import type { MonitoredPath, User } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users } from "lucide-react";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -135,6 +135,15 @@ export default function SettingsPage() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleClearLogo = () => {
+    setLogo(null);
+    toast({
+        title: "Logo Cleared",
+        description: "The brand logo has been removed.",
+        variant: "destructive"
+    });
   };
 
   const handleBrandNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -270,13 +279,21 @@ export default function SettingsPage() {
                         </div>
                       )}
                     </div>
-                    <Input id="logo-upload" type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-                    <Button asChild variant="outline">
-                        <label htmlFor="logo-upload">
-                            <UploadCloud className="mr-2 h-4 w-4" />
-                            Upload Logo
-                        </label>
-                    </Button>
+                    <div className="flex gap-2">
+                        <Input id="logo-upload" type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                        <Button asChild variant="outline">
+                            <label htmlFor="logo-upload">
+                                <UploadCloud className="mr-2 h-4 w-4" />
+                                Upload Logo
+                            </label>
+                        </Button>
+                        {logo && (
+                            <Button variant="destructive" onClick={handleClearLogo}>
+                                <XCircle className="mr-2 h-4 w-4" />
+                                Clear Logo
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </div>
         </CardContent>
@@ -501,3 +518,5 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
+
+    
