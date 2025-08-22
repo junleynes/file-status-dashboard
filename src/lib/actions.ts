@@ -2,14 +2,14 @@
 
 import { revalidatePath } from 'next/cache';
 import { readDb, writeDb } from './db';
-import type { BrandingSettings, CleanupSettings, MonitoredPath, User } from '@/types';
+import type { BrandingSettings, CleanupSettings, MonitoredPaths, User } from '@/types';
 
 export async function updateBrandingSettings(settings: BrandingSettings) {
   const db = await readDb();
   db.branding = settings;
   await writeDb(db);
   revalidatePath('/settings');
-  revalidatePath('/layout');
+  revalidatePath('/layout', 'layout');
 }
 
 export async function addUser(newUser: User): Promise<{ success: boolean, message?: string }> {
@@ -41,16 +41,9 @@ export async function updateUserPassword(userId: string, newPassword: string) {
 }
 
 
-export async function addMonitoredPath(path: MonitoredPath) {
+export async function updateMonitoredPaths(paths: MonitoredPaths) {
   const db = await readDb();
-  db.monitoredPaths.push(path);
-  await writeDb(db);
-  revalidatePath('/settings');
-}
-
-export async function removeMonitoredPath(id: string) {
-  const db = await readDb();
-  db.monitoredPaths = db.monitoredPaths.filter((p) => p.id !== id);
+  db.monitoredPaths = paths;
   await writeDb(db);
   revalidatePath('/settings');
 }
@@ -90,3 +83,5 @@ export async function simulateFileProcessing() {
     // In a real application, this is where you would implement logic
     // to check the monitored folders for actual file changes.
 }
+
+    

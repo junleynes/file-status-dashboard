@@ -9,29 +9,19 @@
     }
   ],
   "branding": {
-    "brandName": "Your Brand",
+    "brandName": "FileStatus Tracker",
     "logo": null
   },
-  "monitoredPaths": [
-    {
-      "id": "1",
-      "path": "/mnt/network-storage/import",
-      "label": "Main Import"
-    },
-    {
-      "id": "2",
-      "path": "/mnt/network-storage/failed",
-      "label": "Failed Folder"
-    }
-  ],
+  "monitoredPaths": {
+    "importPath": "/mnt/network-storage/import",
+    "failedPath": "/mnt/network-storage/failed"
+  },
   "monitoredExtensions": [
     "mov",
     "wav",
     "pdf",
     "mp4",
     "zip",
-    "ae",
-    "cube",
     "mxf"
   ],
   "fileStatuses": [],
@@ -46,3 +36,5 @@
     }
   }
 }
+
+    

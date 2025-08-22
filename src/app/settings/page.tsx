@@ -8,8 +8,8 @@ import { useBranding } from "@/hooks/use-branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { MonitoredPath, User } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock } from "lucide-react";
+import type { MonitoredPaths, User } from "@/types";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -25,22 +25,19 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { readDb } from "@/lib/db";
 import { 
-    addMonitoredPath, 
-    removeMonitoredPath, 
+    updateMonitoredPaths,
     addMonitoredExtension,
     removeMonitoredExtension,
     updateCleanupSettings
 } from "@/lib/actions";
 
 export default function SettingsPage() {
-  const { user, loading, users, addUser, removeUser, updateUserPassword, refreshUsers } = useAuth();
-  const { brandName, logo, setBrandName, setLogo } = useBranding();
+  const { user, loading, users, addUser, removeUser, updateUserPassword } = useAuth();
+  const { brandName, logo, setBrandName, setLogo, brandingLoading } = useBranding();
   const router = useRouter();
 
-  const [paths, setPaths] = useState<MonitoredPath[]>([]);
-  const [newPath, setNewPath] = useState('');
-  const [newLabel, setNewLabel] = useState('');
-
+  const [paths, setPaths] = useState<MonitoredPaths>({ importPath: '', failedPath: '' });
+  
   const [extensions, setExtensions] = useState<string[]>([]);
   const [newExtension, setNewExtension] = useState('');
   const [localBrandName, setLocalBrandName] = useState(brandName);
@@ -74,8 +71,10 @@ export default function SettingsPage() {
   }, [user, loading, router, toast]);
   
   useEffect(() => {
-    setLocalBrandName(brandName);
-  }, [brandName]);
+    if(!brandingLoading) {
+      setLocalBrandName(brandName);
+    }
+  }, [brandName, brandingLoading]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -91,28 +90,10 @@ export default function SettingsPage() {
   }, [])
 
 
-  const handleAddPath = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPath.trim() === '' || newLabel.trim() === '') {
-        toast({ title: "Missing Information", description: "Please provide both a path and a label.", variant: "destructive" });
-        return;
-    }
+  const handleSavePaths = () => {
     startTransition(async () => {
-        const newPathData = { id: crypto.randomUUID(), path: newPath, label: newLabel };
-        await addMonitoredPath(newPathData);
-        setPaths(prev => [...prev, newPathData]);
-        setNewPath('');
-        setNewLabel('');
-        toast({ title: "Path Added", description: `Successfully added "${newPath}" to monitored paths.` });
-    });
-  };
-
-  const handleRemovePath = (id: string) => {
-    const pathToRemove = paths.find(p => p.id === id);
-    startTransition(async () => {
-        await removeMonitoredPath(id);
-        setPaths(prev => prev.filter(p => p.id !== id));
-        toast({ title: "Path Removed", description: `Successfully removed "${pathToRemove?.path}" from monitored paths.`, variant: 'destructive' });
+        await updateMonitoredPaths(paths);
+        toast({ title: "Paths Updated", description: `Monitored paths have been saved.` });
     });
   };
 
@@ -243,7 +224,7 @@ export default function SettingsPage() {
   }
 
 
-  if (loading || user?.role !== 'admin') {
+  if (loading || user?.role !== 'admin' || brandingLoading) {
     return null;
   }
 
@@ -257,55 +238,43 @@ export default function SettingsPage() {
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
         <p className="text-muted-foreground">
-          Configure branding, monitored paths, and file types.
+          Configure application settings, users, and branding.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Branding</CardTitle>
-          <CardDescription>Customize the look and feel of your application.</CardDescription>
+          <CardTitle>Monitored Folders</CardTitle>
+          <CardDescription>Define the main import and failed folders to be monitored by the application.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4">
             <div className="space-y-2">
-                <Label htmlFor="brand-name">Brand Name</Label>
-                <div className="flex gap-2">
-                    <Input id="brand-name" value={localBrandName} onChange={handleBrandNameChange} disabled={isPending} />
-                    <Button onClick={handleBrandNameSave} disabled={isPending || localBrandName === brandName}>Save</Button>
-                </div>
+                <Label htmlFor="import-path">Main Import Folder</Label>
+                <Input
+                  id="import-path"
+                  placeholder="e.g., /mnt/storage/import or C:\\Users\\...\\import"
+                  value={paths.importPath}
+                  onChange={(e) => setPaths(p => ({...p, importPath: e.target.value}))}
+                  disabled={isPending}
+                />
             </div>
             <div className="space-y-2">
-                <Label>Logo</Label>
-                <div className="flex items-center gap-4">
-                    <div className="relative h-16 w-16 rounded-md border p-1">
-                      {logo ? (
-                        <Image src={logo} alt="Brand Logo" layout="fill" objectFit="contain" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-muted">
-                           <UploadCloud className="h-6 w-6 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                        <Input id="logo-upload" type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" disabled={isPending} />
-                        <Button asChild variant="outline" disabled={isPending}>
-                            <label htmlFor="logo-upload">
-                                <UploadCloud className="mr-2 h-4 w-4" />
-                                Upload Logo
-                            </label>
-                        </Button>
-                        {logo && (
-                            <Button variant="destructive" onClick={handleClearLogo} disabled={isPending}>
-                                <XCircle className="mr-2 h-4 w-4" />
-                                Clear Logo
-                            </Button>
-                        )}
-                    </div>
-                </div>
+                <Label htmlFor="failed-path">Failed Folder</Label>
+                <Input
+                  id="failed-path"
+                  placeholder="e.g., /mnt/storage/failed or C:\\Users\\...\\failed"
+                  value={paths.failedPath}
+                  onChange={(e) => setPaths(p => ({...p, failedPath: e.target.value}))}
+                  disabled={isPending}
+                />
             </div>
+            <Button onClick={handleSavePaths} disabled={isPending}>
+              <Save className="mr-2 h-4 w-4" />
+              Save Folders
+            </Button>
         </CardContent>
       </Card>
-      
+
       <Card>
         <CardHeader>
           <CardTitle>User Management</CardTitle>
@@ -375,72 +344,6 @@ export default function SettingsPage() {
                     ))
                 ) : (
                     <div className="text-center text-muted-foreground p-4">No users found.</div>
-                )}
-            </AnimatePresence>
-          </div>
-        </CardContent>
-      </Card>
-
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Monitored Paths</CardTitle>
-          <CardDescription>Add or remove network and local paths to monitor. The label provides a friendly name for the source of a file.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAddPath} className="flex flex-col gap-4 mb-4 md:flex-row">
-            <div className="flex-1 space-y-2">
-                <Label htmlFor="new-path">Path</Label>
-                <Input
-                id="new-path"
-                placeholder="e.g., /mnt/storage/import or C:\\Users\\..."
-                value={newPath}
-                onChange={(e) => setNewPath(e.target.value)}
-                disabled={isPending}
-                />
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="new-label">Label</Label>
-                <Input
-                id="new-label"
-                placeholder="e.g., Main Storage"
-                value={newLabel}
-                onChange={(e) => setNewLabel(e.target.value)}
-                disabled={isPending}
-                />
-            </div>
-            <div className="self-end">
-              <Button type="submit" className="w-full md:w-auto" disabled={isPending}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Path
-              </Button>
-            </div>
-          </form>
-
-          <div className="space-y-2 rounded-lg border p-2">
-            <AnimatePresence>
-                {paths.length > 0 ? (
-                    paths.map(path => (
-                        <motion.div
-                            key={path.id}
-                            layout
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            transition={{ duration: 0.3 }}
-                            className="flex items-center justify-between rounded-md p-2 hover:bg-muted/50"
-                        >
-                            <div className="flex flex-col">
-                                <p className="font-mono text-sm">{path.path}</p>
-                                <p className="text-xs text-muted-foreground">{path.label}</p>
-                            </div>
-                            <Button variant="ghost" size="icon" onClick={() => handleRemovePath(path.id)} disabled={isPending}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                        </motion.div>
-                    ))
-                ) : (
-                    <div className="text-center text-muted-foreground p-4">No paths are being monitored.</div>
                 )}
             </AnimatePresence>
           </div>
@@ -560,7 +463,51 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-
+      <Card>
+        <CardHeader>
+          <CardTitle>Branding</CardTitle>
+          <CardDescription>Customize the look and feel of your application.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+            <div className="space-y-2">
+                <Label htmlFor="brand-name">Brand Name</Label>
+                <div className="flex gap-2">
+                    <Input id="brand-name" value={localBrandName} onChange={handleBrandNameChange} disabled={isPending} />
+                    <Button onClick={handleBrandNameSave} disabled={isPending || localBrandName === brandName}>Save</Button>
+                </div>
+            </div>
+            <div className="space-y-2">
+                <Label>Logo</Label>
+                <div className="flex items-center gap-4">
+                    <div className="relative h-16 w-16 rounded-md border p-1">
+                      {logo ? (
+                        <Image src={logo} alt="Brand Logo" layout="fill" objectFit="contain" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-muted">
+                           <UploadCloud className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                        <Input id="logo-upload" type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" disabled={isPending} />
+                        <Button asChild variant="outline" disabled={isPending}>
+                            <label htmlFor="logo-upload">
+                                <UploadCloud className="mr-2 h-4 w-4" />
+                                Upload Logo
+                            </label>
+                        </Button>
+                        {logo && (
+                            <Button variant="destructive" onClick={handleClearLogo} disabled={isPending}>
+                                <XCircle className="mr-2 h-4 w-4" />
+                                Clear Logo
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </CardContent>
+      </Card>
+      
        <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -589,3 +536,5 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
+
+    

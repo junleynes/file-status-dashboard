@@ -14,10 +14,9 @@ export type FileStatus = {
   lastUpdated: string;
 };
 
-export type MonitoredPath = {
-  id: string;
-  path: string;
-  label: string;
+export type MonitoredPaths = {
+  importPath: string;
+  failedPath: string;
 };
 
 export type CleanupSettings = {
@@ -39,8 +38,10 @@ export type BrandingSettings = {
 export type Database = {
     users: User[];
     branding: BrandingSettings;
-    monitoredPaths: MonitoredPath[];
+    monitoredPaths: MonitoredPaths;
     monitoredExtensions: string[];
     fileStatuses: FileStatus[];
     cleanupSettings: CleanupSettings;
 }
+
+    
