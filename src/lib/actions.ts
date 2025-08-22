@@ -2,19 +2,14 @@
 
 import { revalidatePath } from 'next/cache';
 import { readDb, writeDb } from './db';
-import type { CleanupSettings, MonitoredPath, FileStatus, User } from '@/types';
+import type { BrandingSettings, CleanupSettings, MonitoredPath, User } from '@/types';
 
-export async function updateBrandingSettings({
-  brandName,
-  logo,
-}: {
-  brandName: string;
-  logo: string | null;
-}) {
+export async function updateBrandingSettings(settings: BrandingSettings) {
   const db = await readDb();
-  db.branding = { brandName, logo };
+  db.branding = settings;
   await writeDb(db);
   revalidatePath('/settings');
+  revalidatePath('/layout');
 }
 
 export async function addUser(newUser: User): Promise<{ success: boolean, message?: string }> {
@@ -27,6 +22,22 @@ export async function addUser(newUser: User): Promise<{ success: boolean, messag
   await writeDb({ ...db, users: updatedUsers });
   revalidatePath('/settings');
   return { success: true };
+}
+
+export async function removeUser(userId: string) {
+    const db = await readDb();
+    const updatedUsers = db.users.filter(u => u.id !== userId);
+    await writeDb({ ...db, users: updatedUsers });
+    revalidatePath('/settings');
+}
+
+export async function updateUserPassword(userId: string, newPassword: string) {
+    const db = await readDb();
+    const updatedUsers = db.users.map(u => 
+      u.id === userId ? { ...u, password: newPassword } : u
+    );
+    await writeDb({ ...db, users: updatedUsers });
+    revalidatePath('/settings');
 }
 
 
@@ -75,42 +86,7 @@ export async function clearAllFileStatuses() {
 }
 
 export async function simulateFileProcessing() {
-    const db = await readDb();
-    
-    const processingFiles = db.fileStatuses.filter(f => f.status === 'processing');
-    
-    if (processingFiles.length > 0 && Math.random() > 0.3) {
-        const fileToProcessIndex = db.fileStatuses.findIndex(f => f.id === processingFiles[0].id);
-        if (fileToProcessIndex !== -1) {
-            const outcome = Math.random();
-            if (outcome < 0.2) { // 20% chance of failure
-                db.fileStatuses[fileToProcessIndex] = {
-                    ...db.fileStatuses[fileToProcessIndex],
-                    status: 'failed',
-                    source: 'Failed Folder',
-                    lastUpdated: new Date().toISOString()
-                };
-            } else { // 80% chance of success
-                db.fileStatuses[fileToProcessIndex] = {
-                    ...db.fileStatuses[fileToProcessIndex],
-                    status: 'published',
-                    lastUpdated: new Date().toISOString()
-                };
-            }
-        }
-    } else {
-        const newFile: FileStatus = {
-          id: crypto.randomUUID(),
-          name: `New_Ingest_${Math.floor(Math.random() * 1000)}.mxf`,
-          status: 'processing',
-          source: 'Main Import',
-          lastUpdated: new Date().toISOString(),
-        };
-        db.fileStatuses.push(newFile);
-    }
-    
-    db.fileStatuses.sort((a,b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
-    
-    await writeDb(db);
-    revalidatePath('/dashboard');
+    // This function is now disabled to prevent creating fake files.
+    // In a real application, this is where you would implement logic
+    // to check the monitored folders for actual file changes.
 }

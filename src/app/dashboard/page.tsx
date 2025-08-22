@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { clearAllFileStatuses, simulateFileProcessing } from "@/lib/actions";
+import { clearAllFileStatuses } from "@/lib/actions";
 import { readDb } from "@/lib/db";
 
 export default function DashboardPage() {
@@ -27,19 +27,6 @@ export default function DashboardPage() {
       setFiles(db.fileStatuses);
     };
     fetchFiles();
-  }, []);
-
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      startTransition(async () => {
-        await simulateFileProcessing();
-        const db = await readDb();
-        setFiles(db.fileStatuses);
-      });
-    }, 5000); // Update every 5 seconds
-
-    return () => clearInterval(interval);
   }, []);
 
   const handleClearAll = () => {

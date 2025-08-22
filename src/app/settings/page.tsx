@@ -33,8 +33,8 @@ import {
 } from "@/lib/actions";
 
 export default function SettingsPage() {
-  const { user, loading, users, addUser, removeUser, updateUserPassword } = useAuth();
-  const { brandName, logo, setBrandName, setLogo } = useBranding();
+  const { user, loading, users, addUser, removeUser, updateUserPassword, refreshUsers } = useAuth();
+  const { brandName, logo, setBrandName, setLogo, refreshBranding } = useBranding();
   const router = useRouter();
 
   const [paths, setPaths] = useState<MonitoredPath[]>([]);
@@ -72,13 +72,16 @@ export default function SettingsPage() {
       router.push('/dashboard');
     }
   }, [user, loading, router, toast]);
+  
+  useEffect(() => {
+    setLocalBrandName(brandName);
+  }, [brandName]);
 
   useEffect(() => {
     const fetchData = async () => {
         const db = await readDb();
         setPaths(db.monitoredPaths);
         setExtensions(db.monitoredExtensions);
-        setLocalBrandName(db.branding.brandName);
         setStatusCleanupValue(db.cleanupSettings.status.value);
         setStatusCleanupUnit(db.cleanupSettings.status.unit);
         setFileCleanupValue(db.cleanupSettings.files.value);
@@ -168,6 +171,7 @@ export default function SettingsPage() {
   const handleBrandNameSave = () => {
      startTransition(async () => {
         await setBrandName(localBrandName);
+        await refreshBranding();
         toast({ title: "Brand Name Updated", description: "Your new brand name has been saved." });
     });
   }

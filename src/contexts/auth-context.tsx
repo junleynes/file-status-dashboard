@@ -2,8 +2,8 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { User } from '@/types';
-import { readDb, writeDb } from '@/lib/db';
-import { addUser as addUserAction } from '@/lib/actions';
+import { readDb } from '@/lib/db';
+import { addUser as addUserAction, removeUser as removeUserAction, updateUserPassword as updateUserPasswordAction } from '@/lib/actions';
 
 
 const CURRENT_USER_STORAGE_KEY = 'file-tracker-user';
@@ -18,6 +18,7 @@ interface AuthContextType {
   removeUser: (userId: string) => Promise<void>;
   updateUserPassword: (userId: string, newPassword: string) => Promise<void>;
   updateOwnPassword: (userId: string, currentPassword: string, newPassword: string) => Promise<boolean>;
+  refreshUsers: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const syncUsersFromDb = useCallback(async () => {
+  const refreshUsers = useCallback(async () => {
     const db = await readDb();
     setUsers(db.users);
   }, []);
@@ -35,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const checkUser = async () => {
       try {
-        await syncUsersFromDb();
+        await refreshUsers();
         const storedCurrentUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
         if (storedCurrentUser) {
           setUser(JSON.parse(storedCurrentUser));
@@ -47,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
     checkUser();
-  }, [syncUsersFromDb]);
+  }, [refreshUsers]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     const db = await readDb();
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { password: _, ...userToStore } = userToLogin;
       localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(userToStore));
       setUser(userToStore);
-      setUsers(db.users); // Sync user list on login
+      setUsers(db.users);
       return true;
     }
     return false;
@@ -70,25 +71,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const addUser = async (newUser: User): Promise<boolean> => {
     const result = await addUserAction(newUser);
     if (result.success) {
-      await syncUsersFromDb();
+      await refreshUsers();
     }
     return result.success;
   };
 
   const removeUser = async (userId: string) => {
-    const db = await readDb();
-    const updatedUsers = db.users.filter(u => u.id !== userId);
-    await writeDb({ ...db, users: updatedUsers });
-    setUsers(updatedUsers);
+    await removeUserAction(userId);
+    await refreshUsers();
   };
   
   const updateUserPassword = async (userId: string, newPassword: string) => {
-    const db = await readDb();
-    const updatedUsers = db.users.map(u => 
-      u.id === userId ? { ...u, password: newPassword } : u
-    );
-    await writeDb({ ...db, users: updatedUsers });
-    setUsers(updatedUsers);
+    await updateUserPasswordAction(userId, newPassword);
+    await refreshUsers();
   };
 
   const updateOwnPassword = async (userId: string, currentPassword: string, newPassword: string): Promise<boolean> => {
@@ -99,15 +94,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false; // Current password does not match
     }
 
-    const updatedUsers = db.users.map(u =>
-      u.id === userId ? { ...u, password: newPassword } : u
-    );
-    await writeDb({ ...db, users: updatedUsers });
-    setUsers(updatedUsers);
+    await updateUserPasswordAction(userId, newPassword);
     return true;
   };
 
-  const value = { user, users, loading, login, logout, addUser, removeUser, updateUserPassword, updateOwnPassword };
+  const value = { user, users, loading, login, logout, addUser, removeUser, updateUserPassword, updateOwnPassword, refreshUsers };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

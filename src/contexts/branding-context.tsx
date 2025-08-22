@@ -1,7 +1,8 @@
 "use client";
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { readDb, writeDb } from '@/lib/db';
+import { readDb } from '@/lib/db';
+import { updateBrandingSettings } from '@/lib/actions';
 import type { BrandingSettings } from '@/types';
 
 interface BrandingContextType {
@@ -10,6 +11,7 @@ interface BrandingContextType {
   brandingLoading: boolean;
   setBrandName: (name: string) => Promise<void>;
   setLogo: (logo: string | null) => Promise<void>;
+  refreshBranding: () => Promise<void>;
 }
 
 export const BrandingContext = createContext<BrandingContextType | undefined>(undefined);
@@ -19,7 +21,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   const [logo, setLogoState] = useState<string | null>(null);
   const [brandingLoading, setBrandingLoading] = useState(true);
 
-  const syncBrandingFromDb = useCallback(async () => {
+  const refreshBranding = useCallback(async () => {
     try {
         const db = await readDb();
         if (db.branding) {
@@ -34,24 +36,20 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    syncBrandingFromDb();
-  }, [syncBrandingFromDb]);
+    refreshBranding();
+  }, [refreshBranding]);
 
   const setBrandName = async (name: string) => {
+    await updateBrandingSettings({ brandName: name, logo: logo });
     setBrandNameState(name);
-    const db = await readDb();
-    const newBranding: BrandingSettings = { ...db.branding, brandName: name };
-    await writeDb({ ...db, branding: newBranding });
   };
 
   const setLogo = async (logoData: string | null) => {
+    await updateBrandingSettings({ brandName: brandName, logo: logoData });
     setLogoState(logoData);
-    const db = await readDb();
-    const newBranding: BrandingSettings = { ...db.branding, logo: logoData };
-    await writeDb({ ...db, branding: newBranding });
   };
   
-  const value = { brandName, logo, brandingLoading, setBrandName, setLogo };
+  const value = { brandName, logo, brandingLoading, setBrandName, setLogo, refreshBranding };
 
   return <BrandingContext.Provider value={value}>{children}</BrandingContext.Provider>;
 }
