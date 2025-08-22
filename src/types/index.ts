@@ -9,7 +9,7 @@ export type User = {
 export type FileStatus = {
   id: string;
   name: string;
-  status: 'transferred' | 'failed' | 'published';
+  status: 'processing' | 'transferred' | 'failed' | 'published';
   source: string;
   lastUpdated: string;
 };

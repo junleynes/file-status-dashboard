@@ -1,7 +1,7 @@
 import type { FileStatus, MonitoredPath } from '@/types';
 
 export const initialFileStatuses: FileStatus[] = [
-  { id: '1', name: 'Project_Alpha_Render.mov', status: 'transferred', source: 'Main Import', lastUpdated: new Date(Date.now() - 3600000).toISOString() },
+  { id: '1', name: 'Project_Alpha_Render.mov', status: 'processing', source: 'Main Import', lastUpdated: new Date(Date.now() - 3600000).toISOString() },
   { id: '2', name: 'Scene_04_Take_2.wav', status: 'published', source: 'Main Import', lastUpdated: new Date(Date.now() - 7200000).toISOString() },
   { id: '3', name: 'Client_Feedback_Round2.pdf', status: 'transferred', source: 'Local Import', lastUpdated: new Date(Date.now() - 120000).toISOString() },
   { id: '4', name: 'Final_Cut_V3.mp4', status: 'failed', source: 'Failed Folder', lastUpdated: new Date(Date.now() - 86400000).toISOString() },
@@ -16,4 +16,4 @@ export const initialMonitoredPaths: MonitoredPath[] = [
     { id: '3', path: 'C:\\Users\\Default\\Documents\\local-import', label: 'Local Import' },
 ];
 
-export const initialMonitoredExtensions: string[] = ['mov', 'wav', 'pdf', 'mp4', 'zip', 'ae', 'cube'];
+export const initialMonitoredExtensions: string[] = ['mov', 'wav', 'pdf', 'mp4', 'zip', 'ae', 'cube', 'mxf'];

@@ -20,6 +20,8 @@ interface FileStatusTableProps {
 export function FileStatusTable({ files }: FileStatusTableProps) {
   const getStatusClasses = (status: FileStatus['status']): string => {
     switch (status) {
+      case 'processing':
+        return 'bg-yellow-500/80 border-transparent text-white';
       case 'transferred':
         return 'bg-blue-500/80 border-transparent text-white'; 
       case 'failed':

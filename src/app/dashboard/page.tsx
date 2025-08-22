@@ -6,7 +6,7 @@ import { FileStatusTable } from "@/components/file-status-table";
 import { useAuth } from "@/hooks/use-auth";
 import type { FileStatus } from "@/types";
 import { initialFileStatuses } from "@/lib/mock-data";
-import { Trash2, Search, X, CheckCircle2, AlertTriangle, FileUp } from "lucide-react";
+import { Trash2, Search, X, CheckCircle2, AlertTriangle, FileUp, Loader } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,21 +35,42 @@ export default function DashboardPage() {
   useEffect(() => {
     const interval = setInterval(() => {
       setFiles(currentFiles => {
-        if (currentFiles.length === 0) return [];
         const newFiles = [...currentFiles];
-        const randomIndex = Math.floor(Math.random() * newFiles.length);
-        const statuses: FileStatus['status'][] = ['transferred', 'failed', 'published'];
-        const currentStatus = newFiles[randomIndex].status;
-        let nextStatus: FileStatus['status'];
-        do {
-            nextStatus = statuses[Math.floor(Math.random() * statuses.length)];
-        } while (nextStatus === currentStatus)
+        const processingFiles = newFiles.filter(f => f.status === 'processing');
+        
+        // Randomly decide to process a file or add a new one
+        if (processingFiles.length > 0 && Math.random() > 0.3) {
+            // Process an existing file
+            const fileToProcessIndex = newFiles.findIndex(f => f.id === processingFiles[0].id);
+            if (fileToProcessIndex !== -1) {
+                const outcome = Math.random();
+                if (outcome < 0.2) { // 20% chance of failure
+                    newFiles[fileToProcessIndex] = {
+                        ...newFiles[fileToProcessIndex],
+                        status: 'failed',
+                        source: 'Failed Folder',
+                        lastUpdated: new Date().toISOString()
+                    };
+                } else { // 80% chance of success
+                    newFiles[fileToProcessIndex] = {
+                        ...newFiles[fileToProcessIndex],
+                        status: 'published',
+                        lastUpdated: new Date().toISOString()
+                    };
+                }
+            }
+        } else {
+            // Add a new file
+            const newFile: FileStatus = {
+              id: crypto.randomUUID(),
+              name: `New_Ingest_${Math.floor(Math.random() * 1000)}.mxf`,
+              status: 'processing',
+              source: 'Main Import',
+              lastUpdated: new Date().toISOString(),
+            };
+            newFiles.push(newFile);
+        }
 
-        newFiles[randomIndex] = {
-          ...newFiles[randomIndex],
-          status: nextStatus,
-          lastUpdated: new Date().toISOString(),
-        };
         return newFiles.sort((a,b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
       });
     }, 5000); // Update every 5 seconds
@@ -103,7 +124,16 @@ export default function DashboardPage() {
         )}
       </div>
 
-       <div className="grid gap-4 md:grid-cols-3">
+       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="bg-yellow-500/20 dark:bg-yellow-500/10 border-yellow-500 text-yellow-900 dark:text-yellow-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Processing</CardTitle>
+              <Loader className="h-4 w-4 text-yellow-500 animate-spin" />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{statusCounts.processing || 0}</div>
+            </CardContent>
+          </Card>
           <Card className="bg-green-500/20 dark:bg-green-500/10 border-green-500 text-green-900 dark:text-green-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Published</CardTitle>
@@ -153,8 +183,9 @@ export default function DashboardPage() {
                 </Button>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
                 <Button variant={statusFilter === 'all' ? 'default' : 'outline'} onClick={() => setStatusFilter('all')}>All</Button>
+                <Button variant={statusFilter === 'processing' ? 'secondary' : 'outline'} className={statusFilter === 'processing' ? 'bg-yellow-500/80 text-white' : ''} onClick={() => setStatusFilter('processing')}>Processing</Button>
                 <Button variant={statusFilter === 'published' ? 'secondary' : 'outline'} className={statusFilter === 'published' ? 'bg-green-500/80 text-white' : ''} onClick={() => setStatusFilter('published')}>Published</Button>
                 <Button variant={statusFilter === 'transferred' ? 'secondary' : 'outline'} className={statusFilter === 'transferred' ? 'bg-blue-500/80 text-white' : ''} onClick={() => setStatusFilter('transferred')}>Transferred</Button>
                 <Button variant={statusFilter === 'failed' ? 'destructive' : 'outline'} onClick={() => setStatusFilter('failed')}>Failed</Button>
