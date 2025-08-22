@@ -234,9 +234,15 @@ function Header() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  const { brandingLoading } = useBranding();
+  const { brandName, brandingLoading } = useBranding();
   const pathname = usePathname();
   const router = useRouter();
+
+  useEffect(() => {
+    if (brandName) {
+      document.title = brandName;
+    }
+  }, [brandName]);
 
   useEffect(() => {
     if (!loading && !user && pathname !== '/login') {
