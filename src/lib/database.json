@@ -6,6 +6,13 @@
       "email": "admin@example.com",
       "password": "password123",
       "role": "admin"
+    },
+    {
+      "id": "7c3dd041-d701-4693-b781-0ac7188c6e9a",
+      "name": "Rodrigo Leynes Jr",
+      "email": "releynes@gmanetwork.com",
+      "password": "thousandsunny",
+      "role": "admin"
     }
   ],
   "branding": {
@@ -40,6 +47,55 @@
     "mxf"
   ],
   "fileStatuses": [
+    {
+      "id": "cd6f7c4f-a6a0-4424-beb1-ff0c7335465f",
+      "name": "New_Ingest_881.mxf",
+      "status": "published",
+      "source": "Main Import",
+      "lastUpdated": "2025-08-22T10:59:09.263Z"
+    },
+    {
+      "id": "2a24e47d-2606-4fdc-8e6a-cb106608ce32",
+      "name": "New_Ingest_983.mxf",
+      "status": "published",
+      "source": "Main Import",
+      "lastUpdated": "2025-08-22T10:58:44.562Z"
+    },
+    {
+      "id": "6ad1cf0d-539f-40a9-a8c6-1133806e06ae",
+      "name": "New_Ingest_542.mxf",
+      "status": "published",
+      "source": "Main Import",
+      "lastUpdated": "2025-08-22T10:58:34.569Z"
+    },
+    {
+      "id": "9454aaa9-7587-4125-b772-c65a22b0b4ec",
+      "name": "New_Ingest_10.mxf",
+      "status": "published",
+      "source": "Main Import",
+      "lastUpdated": "2025-08-22T10:58:29.578Z"
+    },
+    {
+      "id": "75953986-f882-4fab-ae73-493bd0f32b0a",
+      "name": "New_Ingest_590.mxf",
+      "status": "failed",
+      "source": "Failed Folder",
+      "lastUpdated": "2025-08-22T10:58:13.400Z"
+    },
+    {
+      "id": "8e06a929-9842-4e0c-a707-492b9eba04bf",
+      "name": "New_Ingest_367.mxf",
+      "status": "published",
+      "source": "Main Import",
+      "lastUpdated": "2025-08-22T10:58:03.079Z"
+    },
+    {
+      "id": "b7fe587a-7aad-43d8-9637-a538d253e906",
+      "name": "New_Ingest_75.mxf",
+      "status": "published",
+      "source": "Main Import",
+      "lastUpdated": "2025-08-22T10:57:53.493Z"
+    },
     {
       "id": "7afdf4dc-7c64-483e-81a2-69962689ac41",
       "name": "New_Ingest_790.mxf",

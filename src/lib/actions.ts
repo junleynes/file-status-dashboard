@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { readDb, writeDb } from './db';
-import type { CleanupSettings, MonitoredPath, FileStatus } from '@/types';
+import type { CleanupSettings, MonitoredPath, FileStatus, User } from '@/types';
 
 export async function updateBrandingSettings({
   brandName,
@@ -16,6 +16,19 @@ export async function updateBrandingSettings({
   await writeDb(db);
   revalidatePath('/settings');
 }
+
+export async function addUser(newUser: User): Promise<{ success: boolean, message?: string }> {
+  const db = await readDb();
+  const userExists = db.users.some(u => u.email === newUser.email);
+  if (userExists) {
+    return { success: false, message: "A user with this email already exists." };
+  }
+  const updatedUsers = [...db.users, newUser];
+  await writeDb({ ...db, users: updatedUsers });
+  revalidatePath('/settings');
+  return { success: true };
+}
+
 
 export async function addMonitoredPath(path: MonitoredPath) {
   const db = await readDb();

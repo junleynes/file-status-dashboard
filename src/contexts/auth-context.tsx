@@ -3,6 +3,8 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { User } from '@/types';
 import { readDb, writeDb } from '@/lib/db';
+import { addUser as addUserAction } from '@/lib/actions';
+
 
 const CURRENT_USER_STORAGE_KEY = 'file-tracker-user';
 
@@ -66,15 +68,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   
   const addUser = async (newUser: User): Promise<boolean> => {
-    const db = await readDb();
-    const userExists = db.users.some(u => u.email === newUser.email);
-    if (userExists) {
-      return false;
+    const result = await addUserAction(newUser);
+    if (result.success) {
+      await syncUsersFromDb();
     }
-    const updatedUsers = [...db.users, newUser];
-    await writeDb({ ...db, users: updatedUsers });
-    setUsers(updatedUsers);
-    return true;
+    return result.success;
   };
 
   const removeUser = async (userId: string) => {
