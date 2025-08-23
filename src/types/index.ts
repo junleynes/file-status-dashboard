@@ -5,6 +5,7 @@ export type User = {
   email: string;
   role: 'admin' | 'user';
   password?: string;
+  avatar?: string | null;
 };
 
 export type FileStatus = {

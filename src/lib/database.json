@@ -6,7 +6,16 @@
       "name": "Admin User",
       "email": "admin@example.com",
       "password": "password123",
-      "role": "admin"
+      "role": "admin",
+      "avatar": null
+    },
+    {
+      "id": "d96b87d6-e238-408f-acaa-f22ac7ea30bd",
+      "name": "Rodrigo Leynes Jr",
+      "email": "releynes@gmanetwork.com",
+      "password": "thousandsunny",
+      "role": "user",
+      "avatar": null
     }
   ],
   "branding": {

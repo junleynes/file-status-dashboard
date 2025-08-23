@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState } from 'react';
@@ -5,7 +6,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   SidebarProvider,
   Sidebar,
-  SidebarInset,
   SidebarContent,
   SidebarMenu,
   SidebarMenuItem,
@@ -174,7 +174,7 @@ function Header() {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-background/50 backdrop-blur-sm px-4 md:px-6">
+    <header className="flex h-16 shrink-0 items-center justify-between border-b bg-background/50 backdrop-blur-sm px-4 md:px-6">
        <div className="flex items-center gap-2">
          <SidebarTrigger className="md:hidden" />
          <BrandLogo className="h-6 w-6 text-primary" />
@@ -184,7 +184,7 @@ function Header() {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-10 w-10 rounded-full">
             <Avatar className="h-10 w-10">
-              <AvatarImage src={`https://i.pravatar.cc/150?u=${user?.email}`} alt={user?.name} />
+              {user?.avatar && <AvatarImage src={user.avatar} alt={user.name ?? ''} />}
               <AvatarFallback>{user?.name?.[0].toUpperCase()}</AvatarFallback>
             </Avatar>
           </Button>
@@ -272,7 +272,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
-        <Sidebar collapsible="icon">
+        <Sidebar>
           <SidebarContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -300,10 +300,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </SidebarMenu>
           </SidebarContent>
         </Sidebar>
-        <SidebarInset className="flex-1 flex-col">
+        <div className="flex-1 flex flex-col">
           <Header />
           <main className="flex-1 p-4 md:p-6">{children}</main>
-        </SidebarInset>
+        </div>
       </div>
     </SidebarProvider>
   );

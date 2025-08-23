@@ -1,3 +1,4 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
@@ -35,6 +36,15 @@ export async function updateUserPassword(userId: string, newPassword: string) {
     const db = await readDb();
     const updatedUsers = db.users.map(u => 
       u.id === userId ? { ...u, password: newPassword } : u
+    );
+    await writeDb({ ...db, users: updatedUsers });
+    revalidatePath('/settings');
+}
+
+export async function updateUser(user: User) {
+    const db = await readDb();
+    const updatedUsers = db.users.map(u => 
+      u.id === user.id ? { ...u, ...user } : u
     );
     await writeDb({ ...db, users: updatedUsers });
     revalidatePath('/settings');
@@ -83,5 +93,3 @@ export async function simulateFileProcessing() {
     // In a real application, this is where you would implement logic
     // to check the monitored folders for actual file changes.
 }
-
-    

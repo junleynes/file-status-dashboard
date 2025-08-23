@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MonitoredPaths, User, CleanupSettings } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save } from "lucide-react";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, UserCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -31,9 +31,10 @@ import {
     removeMonitoredExtension,
     updateCleanupSettings
 } from "@/lib/actions";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function SettingsPage() {
-  const { user, loading, users, addUser, removeUser, updateUserPassword, refreshUsers } = useAuth();
+  const { user, loading, users, addUser, removeUser, updateUserPassword, refreshUsers, updateUser, refreshCurrentUser } = useAuth();
   const { brandName, logo, setBrandName, setLogo, brandingLoading, refreshBranding } = useBranding();
   const router = useRouter();
 
@@ -143,6 +144,31 @@ export default function SettingsPage() {
         toast({ title: "Logo Cleared", description: "The brand logo has been removed.", variant: "destructive" });
     });
   };
+
+    const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!user) return;
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                startTransition(async () => {
+                    await updateUser({ ...user, avatar: reader.result as string });
+                    toast({ title: "Profile Picture Updated", description: "Your new picture has been saved." });
+                    await refreshCurrentUser();
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleClearAvatar = () => {
+        if (!user) return;
+        startTransition(async () => {
+            await updateUser({ ...user, avatar: null });
+            toast({ title: "Profile Picture Cleared", description: "Your profile picture has been removed.", variant: "destructive" });
+             await refreshCurrentUser();
+        });
+    };
 
   const handleBrandNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setLocalBrandName(e.target.value);
@@ -254,6 +280,41 @@ export default function SettingsPage() {
         </p>
       </div>
 
+       <Card>
+        <CardHeader>
+            <CardTitle>My Profile</CardTitle>
+            <CardDescription>Update your personal information and profile picture.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+             <div className="space-y-2">
+                <Label>Profile Picture</Label>
+                <div className="flex items-center gap-4">
+                     <Avatar className="h-16 w-16">
+                        {user?.avatar && <AvatarImage src={user.avatar} alt={user.name ?? ''} />}
+                        <AvatarFallback>
+                            <UserCircle className="h-8 w-8 text-muted-foreground" />
+                        </AvatarFallback>
+                    </Avatar>
+                    <div className="flex gap-2">
+                        <Input id="avatar-upload" type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" disabled={isPending} />
+                        <Button asChild variant="outline" disabled={isPending}>
+                            <label htmlFor="avatar-upload">
+                                <UploadCloud className="mr-2 h-4 w-4" />
+                                Upload Picture
+                            </label>
+                        </Button>
+                        {user.avatar && (
+                            <Button variant="destructive" onClick={handleClearAvatar} disabled={isPending}>
+                                <XCircle className="mr-2 h-4 w-4" />
+                                Clear
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Monitored Folders</CardTitle>
@@ -339,9 +400,15 @@ export default function SettingsPage() {
                             transition={{ duration: 0.3 }}
                             className="flex items-center justify-between rounded-md p-2 hover:bg-muted/50"
                         >
-                            <div className="flex flex-col">
-                                <p className="font-medium text-sm">{u.name} <span className="text-xs text-muted-foreground capitalize">({u.role})</span></p>
-                                <p className="text-xs text-muted-foreground">{u.email}</p>
+                            <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8">
+                                    {u.avatar && <AvatarImage src={u.avatar} alt={u.name ?? ''} />}
+                                    <AvatarFallback>{u.name?.[0].toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex flex-col">
+                                    <p className="font-medium text-sm">{u.name} <span className="text-xs text-muted-foreground capitalize">({u.role})</span></p>
+                                    <p className="text-xs text-muted-foreground">{u.email}</p>
+                                </div>
                             </div>
                             <div className="flex items-center gap-1">
                                 <Button variant="outline" size="sm" onClick={() => handleOpenResetDialog(u)} disabled={isPending}>
