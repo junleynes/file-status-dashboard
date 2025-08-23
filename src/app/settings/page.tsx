@@ -53,7 +53,7 @@ const defaultFailedPath: MonitoredPath = {
 };
 
 export default function SettingsPage() {
-  const { user, loading, users, addUser, removeUser, updateUserPassword } = useAuth();
+  const { user, loading, users, addUser, removeUser, updateUserPassword, refreshUsers } = useAuth();
   const { brandName, logo, setBrandName, setLogo, brandingLoading } = useBranding();
   const router = useRouter();
 
@@ -110,20 +110,16 @@ export default function SettingsPage() {
   }, [])
 
 
-  const handleSavePaths = () => {
+  const handleSavePath = (id: 'import' | 'failed') => {
     startTransition(async () => {
-        const { import: importPath, failed: failedPath } = paths;
-        if (!importPath.name || !importPath.path || (importPath.type === 'network' && (!importPath.username || !importPath.password))) {
-             toast({ title: "Error", description: "Please fill in all required fields for the Import Location.", variant: "destructive" });
-             return;
-        }
-        if (!failedPath.name || !failedPath.path || (failedPath.type === 'network' && (!failedPath.username || !failedPath.password))) {
-             toast({ title: "Error", description: "Please fill in all required fields for the Failed Location.", variant: "destructive" });
+        const pathData = paths[id];
+        if (!pathData.name || !pathData.path || (pathData.type === 'network' && (!pathData.username || !pathData.password))) {
+             toast({ title: "Error", description: `Please fill in all required fields for the ${pathData.name} Location.`, variant: "destructive" });
              return;
         }
 
         await updateMonitoredPaths(paths);
-        toast({ title: "Locations Saved", description: `Configuration for monitored locations has been saved.` });
+        toast({ title: "Location Saved", description: `Configuration for ${pathData.name} has been saved.` });
         setEditingPathId(null);
     });
   };
@@ -223,6 +219,7 @@ export default function SettingsPage() {
             setNewUserEmail('');
             setNewUserPassword('');
             setNewUserRole('user');
+            await refreshUsers();
         } else {
             toast({ title: "Error", description: "A user with this email already exists.", variant: "destructive" });
         }
@@ -286,18 +283,31 @@ export default function SettingsPage() {
   }
 
   const renderPath = (p: MonitoredPath, type: 'import' | 'failed') => {
-    const handlePathChange = (field: keyof MonitoredPath, value: any) => handlePathChange(type, field, value);
+    const isEditing = editingPathId === p.id;
+    const onPathChange = (field: keyof MonitoredPath, value: any) => handlePathChange(type, field, value);
 
     return (
         <div className="rounded-lg border p-4 space-y-4 relative bg-muted/20">
+            <div className="absolute top-2 right-2">
+                 {isEditing ? (
+                     <Button variant="ghost" size="icon" onClick={() => handleSavePath(type)} disabled={isPending}>
+                         <Check className="h-5 w-5 text-green-600" />
+                     </Button>
+                ) : (
+                    <Button variant="ghost" size="icon" onClick={() => setEditingPathId(p.id)} disabled={isPending}>
+                        <Edit className="h-4 w-4" />
+                    </Button>
+                )}
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <Label htmlFor={`name-${p.id}`}>Name</Label>
-                    <Input id={`name-${p.id}`} placeholder="e.g., Main Storage" value={p.name} onChange={e => handlePathChange('name', e.target.value)} />
+                    <Input id={`name-${p.id}`} placeholder="e.g., Main Storage" value={p.name} onChange={e => onPathChange('name', e.target.value)} disabled={!isEditing || isPending} />
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor={`type-${p.id}`}>Type</Label>
-                    <Select value={p.type} onValueChange={(v: 'local' | 'network') => handlePathChange('type', v)}>
+                    <Select value={p.type} onValueChange={(v: 'local' | 'network') => onPathChange('type', v)} disabled={!isEditing || isPending}>
                         <SelectTrigger id={`type-${p.id}`}>
                             <SelectValue />
                         </SelectTrigger>
@@ -310,17 +320,17 @@ export default function SettingsPage() {
             </div>
             <div className="space-y-2">
                 <Label htmlFor={`path-${p.id}`}>Path</Label>
-                <Input id={`path-${p.id}`} placeholder="e.g., /mnt/storage/import or \\\\server\\share" value={p.path} onChange={e => handlePathChange('path', e.target.value)} />
+                <Input id={`path-${p.id}`} placeholder="e.g., /mnt/storage/import or \\\\server\\share" value={p.path} onChange={e => onPathChange('path', e.target.value)} disabled={!isEditing || isPending} />
             </div>
             {p.type === 'network' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor={`user-${p.id}`}>Username</Label>
-                        <Input id={`user-${p.id}`} placeholder="Required" value={p.username} onChange={e => handlePathChange('username', e.target.value)} />
+                        <Input id={`user-${p.id}`} placeholder="Required" value={p.username} onChange={e => onPathChange('username', e.target.value)} disabled={!isEditing || isPending} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor={`pass-${p.id}`}>Password</Label>
-                        <Input id={`pass-${p.id}`} type="password" placeholder="Required" value={p.password} onChange={e => handlePathChange('password', e.target.value)} />
+                        <Input id={`pass-${p.id}`} type="password" placeholder="Required" value={p.password} onChange={e => onPathChange('password', e.target.value)} disabled={!isEditing || isPending} />
                     </div>
                 </div>
             )}
@@ -361,9 +371,6 @@ export default function SettingsPage() {
                      {renderPath(paths.failed, 'failed')}
                  </div>
             </div>
-            <Button onClick={handleSavePaths} disabled={isPending}>
-                <FolderCog className="mr-2 h-4 w-4" /> Save Locations
-            </Button>
         </CardContent>
       </Card>
 
