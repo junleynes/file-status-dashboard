@@ -8,14 +8,6 @@
       "password": "password123",
       "role": "admin",
       "avatar": null
-    },
-    {
-      "id": "d96b87d6-e238-408f-acaa-f22ac7ea30bd",
-      "name": "Rodrigo Leynes Jr",
-      "email": "releynes@gmanetwork.com",
-      "password": "thousandsunny",
-      "role": "user",
-      "avatar": null
     }
   ],
   "branding": {
@@ -23,28 +15,27 @@
     "logo": null
   },
   "monitoredPaths": {
-    "importPath": "/mnt/network-storage/import",
-    "failedPath": "/mnt/network-storage/failed"
+    "import": [],
+    "failed": ""
   },
   "monitoredExtensions": [
     "mov",
-    "wav",
-    "pdf",
-    "mp4",
-    "zip",
     "mxf"
   ],
   "fileStatuses": [],
   "cleanupSettings": {
     "status": {
+      "enabled": true,
       "value": "7",
       "unit": "days"
     },
     "files": {
+      "enabled": false,
       "value": "30",
       "unit": "days"
     },
     "timeout": {
+      "enabled": true,
       "value": "24",
       "unit": "hours"
     }

@@ -44,7 +44,7 @@ export default function DashboardPage() {
   };
 
   const processedFiles = useMemo(() => {
-    if (!cleanupSettings?.timeout) return files;
+    if (!cleanupSettings?.timeout.enabled) return files;
     
     const now = new Date().getTime();
     const timeoutValue = parseInt(cleanupSettings.timeout.value);

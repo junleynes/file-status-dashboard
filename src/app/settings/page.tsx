@@ -9,8 +9,8 @@ import { useBranding } from "@/hooks/use-branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { MonitoredPaths, User, CleanupSettings } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save } from "lucide-react";
+import type { MonitoredPath, MonitoredPaths, User, CleanupSettings } from "@/types";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { readDb } from "@/lib/db";
 import { 
     updateMonitoredPaths,
@@ -38,7 +39,7 @@ export default function SettingsPage() {
   const { brandName, logo, setBrandName, setLogo, brandingLoading } = useBranding();
   const router = useRouter();
 
-  const [paths, setPaths] = useState<MonitoredPaths>({ importPath: '', failedPath: '' });
+  const [paths, setPaths] = useState<MonitoredPaths>({ import: [], failed: '' });
   
   const [extensions, setExtensions] = useState<string[]>([]);
   const [newExtension, setNewExtension] = useState('');
@@ -54,9 +55,9 @@ export default function SettingsPage() {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
   const [cleanupSettings, setCleanupSettings] = useState<CleanupSettings>({
-      status: { value: '7', unit: 'days'},
-      files: { value: '30', unit: 'days'},
-      timeout: { value: '24', unit: 'hours'}
+      status: { enabled: true, value: '7', unit: 'days'},
+      files: { enabled: false, value: '30', unit: 'days'},
+      timeout: { enabled: true, value: '24', unit: 'hours'}
   })
 
   const [isPending, startTransition] = useTransition();
@@ -96,6 +97,30 @@ export default function SettingsPage() {
         toast({ title: "Paths Updated", description: `Monitored paths have been saved.` });
     });
   };
+
+  const handleAddImportPath = () => {
+    const newPath: MonitoredPath = {
+      id: crypto.randomUUID(),
+      name: '',
+      type: 'local',
+      path: '',
+      username: '',
+      password: ''
+    };
+    setPaths(p => ({ ...p, import: [...p.import, newPath]}));
+  };
+
+  const handleRemoveImportPath = (id: string) => {
+    setPaths(p => ({ ...p, import: p.import.filter(item => item.id !== id) }));
+  };
+
+  const handleImportPathChange = <T extends keyof MonitoredPath>(id: string, field: T, value: MonitoredPath[T]) => {
+    setPaths(p => ({
+      ...p,
+      import: p.import.map(item => item.id === id ? { ...item, [field]: value } : item)
+    }));
+  };
+
 
   const handleAddExtension = (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,33 +283,81 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Monitored Folders</CardTitle>
-          <CardDescription>Define the main import and failed folders to be monitored by the application.</CardDescription>
+          <CardTitle>Monitored Volumes or Folders</CardTitle>
+          <CardDescription>Define the import volumes and the single failed folder to be monitored by the application.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-            <div className="space-y-2">
-                <Label htmlFor="import-path">Main Import Folder</Label>
-                <Input
-                  id="import-path"
-                  placeholder="e.g., /mnt/storage/import or C:\\Users\\...\\import"
-                  value={paths.importPath}
-                  onChange={(e) => setPaths(p => ({...p, importPath: e.target.value}))}
-                  disabled={isPending}
-                />
+        <CardContent className="space-y-6">
+            <div>
+              <Label className="text-base font-medium">Import Volumes</Label>
+              <div className="space-y-4 mt-2">
+                <AnimatePresence>
+                {paths.import.map((p, index) => (
+                  <motion.div 
+                    key={p.id}
+                    layout
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, x: -20, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="rounded-lg border p-4 space-y-4 relative"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor={`import-name-${p.id}`}>Name</Label>
+                        <Input id={`import-name-${p.id}`} placeholder="e.g., Main Storage" value={p.name} onChange={e => handleImportPathChange(p.id, 'name', e.target.value)} />
+                      </div>
+                       <div className="space-y-2">
+                        <Label htmlFor={`import-type-${p.id}`}>Type</Label>
+                        <Select value={p.type} onValueChange={(v: 'local'|'network') => handleImportPathChange(p.id, 'type', v)}>
+                          <SelectTrigger id={`import-type-${p.id}`}>
+                            <SelectValue/>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="local"><div className="flex items-center gap-2"><Folder className="h-4 w-4" /> Local</div></SelectItem>
+                            <SelectItem value="network"><div className="flex items-center gap-2"><Server className="h-4 w-4" /> Network (SMB)</div></SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor={`import-path-${p.id}`}>Path</Label>
+                        <Input id={`import-path-${p.id}`} placeholder="e.g., /mnt/storage/import or \\\\server\\share" value={p.path} onChange={e => handleImportPathChange(p.id, 'path', e.target.value)} />
+                      </div>
+                    {p.type === 'network' && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div className="space-y-2">
+                          <Label htmlFor={`import-user-${p.id}`}>Username</Label>
+                          <Input id={`import-user-${p.id}`} placeholder="Optional" value={p.username} onChange={e => handleImportPathChange(p.id, 'username', e.target.value)} />
+                        </div>
+                         <div className="space-y-2">
+                          <Label htmlFor={`import-pass-${p.id}`}>Password</Label>
+                          <Input id={`import-pass-${p.id}`} type="password" placeholder="Optional" value={p.password} onChange={e => handleImportPathChange(p.id, 'password', e.target.value)} />
+                        </div>
+                      </div>
+                    )}
+                     <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => handleRemoveImportPath(p.id)}>
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                  </motion.div>
+                ))}
+                </AnimatePresence>
+                <Button variant="outline" onClick={handleAddImportPath}><PlusCircle className="mr-2 h-4 w-4" />Add Import Volume</Button>
+              </div>
             </div>
+
             <div className="space-y-2">
-                <Label htmlFor="failed-path">Failed Folder</Label>
+                <Label htmlFor="failed-path" className="text-base font-medium">Failed Folder</Label>
                 <Input
                   id="failed-path"
                   placeholder="e.g., /mnt/storage/failed or C:\\Users\\...\\failed"
-                  value={paths.failedPath}
-                  onChange={(e) => setPaths(p => ({...p, failedPath: e.target.value}))}
+                  value={paths.failed}
+                  onChange={(e) => setPaths(p => ({...p, failed: e.target.value}))}
                   disabled={isPending}
                 />
             </div>
             <Button onClick={handleSavePaths} disabled={isPending}>
               <Save className="mr-2 h-4 w-4" />
-              Save Folders
+              Save Monitored Paths
             </Button>
         </CardContent>
       </Card>
@@ -430,75 +503,99 @@ export default function SettingsPage() {
           <CardDescription>Configure automatic cleanup rules and processing timeouts.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="space-y-2">
-              <Label>Flag files as Timed-out after</Label>
-              <div className="flex items-center gap-2">
-                <Input 
-                  type="number" 
-                  className="w-24"
-                  value={cleanupSettings.timeout.value}
-                  onChange={(e) => handleCleanupSettingChange('timeout', 'value', e.target.value)}
-                  min="1"
-                  disabled={isPending}
+           <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                    <Label>Flag files as Timed-out</Label>
+                    <p className="text-xs text-muted-foreground">Automatically flag files in 'Processing' as 'Timed-out' after a set period.</p>
+                     <div className="flex items-center gap-2 pt-2" style={{ opacity: cleanupSettings.timeout.enabled ? 1 : 0.5 }}>
+                        <Input 
+                        type="number" 
+                        className="w-24"
+                        value={cleanupSettings.timeout.value}
+                        onChange={(e) => handleCleanupSettingChange('timeout', 'value', e.target.value)}
+                        min="1"
+                        disabled={isPending || !cleanupSettings.timeout.enabled}
+                        />
+                        <Select value={cleanupSettings.timeout.unit} onValueChange={(v: 'hours'|'days') => handleCleanupSettingChange('timeout', 'unit', v)} disabled={isPending || !cleanupSettings.timeout.enabled}>
+                            <SelectTrigger className="w-[120px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="hours">Hours</SelectItem>
+                                <SelectItem value="days">Days</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <Switch
+                    checked={cleanupSettings.timeout.enabled}
+                    onCheckedChange={(checked) => handleCleanupSettingChange('timeout', 'enabled', checked)}
+                    disabled={isPending}
                 />
-                <Select value={cleanupSettings.timeout.unit} onValueChange={(v: 'hours'|'days') => handleCleanupSettingChange('timeout', 'unit', v)} disabled={isPending}>
-                    <SelectTrigger className="w-[120px]">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="hours">Hours</SelectItem>
-                        <SelectItem value="days">Days</SelectItem>
-                    </SelectContent>
-                </Select>
-              </div>
-              <p className="text-xs text-muted-foreground">Automatically flag files in 'Processing' as 'Timed-out' after this period.</p>
-          </div>
-          <div className="space-y-2">
-              <Label>Clear status from dashboard after</Label>
-              <div className="flex items-center gap-2">
-                <Input 
-                  type="number" 
-                  className="w-24"
-                  value={cleanupSettings.status.value}
-                  onChange={(e) => handleCleanupSettingChange('status', 'value', e.target.value)}
-                  min="1"
-                  disabled={isPending}
+            </div>
+
+            <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                 <div className="space-y-0.5">
+                    <Label>Clear status from dashboard</Label>
+                    <p className="text-xs text-muted-foreground">Automatically remove file status entries from the dashboard after a set period.</p>
+                    <div className="flex items-center gap-2 pt-2" style={{ opacity: cleanupSettings.status.enabled ? 1 : 0.5 }}>
+                        <Input 
+                        type="number" 
+                        className="w-24"
+                        value={cleanupSettings.status.value}
+                        onChange={(e) => handleCleanupSettingChange('status', 'value', e.target.value)}
+                        min="1"
+                        disabled={isPending || !cleanupSettings.status.enabled}
+                        />
+                        <Select value={cleanupSettings.status.unit} onValueChange={(v: 'hours'|'days') => handleCleanupSettingChange('status', 'unit', v)} disabled={isPending || !cleanupSettings.status.enabled}>
+                            <SelectTrigger className="w-[120px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="hours">Hours</SelectItem>
+                                <SelectItem value="days">Days</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <Switch
+                    checked={cleanupSettings.status.enabled}
+                    onCheckedChange={(checked) => handleCleanupSettingChange('status', 'enabled', checked)}
+                    disabled={isPending}
                 />
-                <Select value={cleanupSettings.status.unit} onValueChange={(v: 'hours'|'days') => handleCleanupSettingChange('status', 'unit', v)} disabled={isPending}>
-                    <SelectTrigger className="w-[120px]">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="hours">Hours</SelectItem>
-                        <SelectItem value="days">Days</SelectItem>
-                    </SelectContent>
-                </Select>
-              </div>
-              <p className="text-xs text-muted-foreground">Automatically remove file status entries from the dashboard after this period.</p>
-          </div>
-           <div className="space-y-2">
-              <Label>Clear files from monitored folders after</Label>
-              <div className="flex items-center gap-2">
-                <Input 
-                  type="number" 
-                  className="w-24"
-                  value={cleanupSettings.files.value}
-                  onChange={(e) => handleCleanupSettingChange('files', 'value', e.target.value)}
-                  min="1"
-                  disabled={isPending}
+            </div>
+
+            <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                    <Label>Clear files from monitored folders</Label>
+                    <p className="text-xs text-muted-foreground">Automatically delete files from their source folders after a set period.</p>
+                    <div className="flex items-center gap-2 pt-2" style={{ opacity: cleanupSettings.files.enabled ? 1 : 0.5 }}>
+                        <Input 
+                        type="number" 
+                        className="w-24"
+                        value={cleanupSettings.files.value}
+                        onChange={(e) => handleCleanupSettingChange('files', 'value', e.target.value)}
+                        min="1"
+                        disabled={isPending || !cleanupSettings.files.enabled}
+                        />
+                        <Select value={cleanupSettings.files.unit} onValueChange={(v: 'hours' | 'days') => handleCleanupSettingChange('files', 'unit', v)} disabled={isPending || !cleanupSettings.files.enabled}>
+                            <SelectTrigger className="w-[120px]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="hours">Hours</SelectItem>
+                                <SelectItem value="days">Days</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <Switch
+                    checked={cleanupSettings.files.enabled}
+                    onCheckedChange={(checked) => handleCleanupSettingChange('files', 'enabled', checked)}
+                    disabled={isPending}
                 />
-                <Select value={cleanupSettings.files.unit} onValueChange={(v: 'hours' | 'days') => handleCleanupSettingChange('files', 'unit', v)} disabled={isPending}>
-                    <SelectTrigger className="w-[120px]">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="hours">Hours</SelectItem>
-                        <SelectItem value="days">Days</SelectItem>
-                    </SelectContent>
-                </Select>
-              </div>
-              <p className="text-xs text-muted-foreground">Automatically delete files from their source folders after this period.</p>
-          </div>
+            </div>
+
           <Button onClick={handleSaveCleanupSettings} disabled={isPending}>
             <Clock className="mr-2 h-4 w-4" />
             Save Cleanup Settings

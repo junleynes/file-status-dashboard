@@ -16,24 +16,31 @@ export type FileStatus = {
   lastUpdated: string;
 };
 
+export type MonitoredPath = {
+  id: string;
+  name: string;
+  type: 'local' | 'network';
+  path: string;
+  username?: string;
+  password?: string;
+}
+
 export type MonitoredPaths = {
-  importPath: string;
-  failedPath: string;
+  import: MonitoredPath[];
+  failed: string;
 };
 
+
+export type CleanupRule = {
+  enabled: boolean;
+  value: string;
+  unit: 'hours' | 'days';
+}
+
 export type CleanupSettings = {
-  status: {
-    value: string;
-    unit: 'hours' | 'days';
-  };
-  files: {
-    value: string;
-    unit: 'hours' | 'days';
-  };
-  timeout: {
-    value: string;
-    unit: 'hours' | 'days';
-  }
+  status: CleanupRule;
+  files: CleanupRule;
+  timeout: CleanupRule;
 }
 
 export type BrandingSettings = {
