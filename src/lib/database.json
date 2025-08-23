@@ -1,4 +1,3 @@
-
 {
   "users": [
     {
@@ -15,7 +14,16 @@
     "logo": null
   },
   "monitoredPaths": {
-    "import": [],
+    "import": [
+      {
+        "id": "0ec13bef-1c1d-42a0-8acb-ea359de03de4",
+        "name": "",
+        "type": "local",
+        "path": "",
+        "username": "",
+        "password": ""
+      }
+    ],
     "failed": {
       "id": "failed-path",
       "name": "Failed",
