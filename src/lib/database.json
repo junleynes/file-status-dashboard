@@ -4,7 +4,7 @@
       "id": "admin-user-01",
       "name": "Admin User",
       "email": "admin@example.com",
-      "password": "password123",
+      "password": "P@ssw0rd",
       "role": "admin",
       "avatar": null
     }
