@@ -219,7 +219,6 @@ export default function SettingsPage() {
             setNewUserEmail('');
             setNewUserPassword('');
             setNewUserRole('user');
-            await refreshUsers();
         } else {
             toast({ title: "Error", description: "A user with this email already exists.", variant: "destructive" });
         }

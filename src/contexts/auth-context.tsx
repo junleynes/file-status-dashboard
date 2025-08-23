@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { password: _, ...userToStore } = userToLogin;
       localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(userToStore));
       setUser(userToStore);
-      setUsers(db.users);
+      await refreshUsers(); // Refresh users on login
       return true;
     }
     return false;
@@ -124,5 +124,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
-
-    
