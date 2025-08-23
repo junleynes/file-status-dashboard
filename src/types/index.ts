@@ -1,3 +1,4 @@
+
 export type User = {
   id: string;
   name: string;
@@ -9,7 +10,7 @@ export type User = {
 export type FileStatus = {
   id: string;
   name: string;
-  status: 'processing' | 'failed' | 'published';
+  status: 'processing' | 'failed' | 'published' | 'timed-out';
   source: string;
   lastUpdated: string;
 };
@@ -25,6 +26,10 @@ export type CleanupSettings = {
     unit: 'hours' | 'days';
   };
   files: {
+    value: string;
+    unit: 'hours' | 'days';
+  };
+  timeout: {
     value: string;
     unit: 'hours' | 'days';
   }
@@ -43,5 +48,3 @@ export type Database = {
     fileStatuses: FileStatus[];
     cleanupSettings: CleanupSettings;
 }
-
-    

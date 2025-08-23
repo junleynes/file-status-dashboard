@@ -1,11 +1,12 @@
+
 "use client";
 
 import { useEffect, useState, useMemo, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { FileStatusTable } from "@/components/file-status-table";
 import { useAuth } from "@/hooks/use-auth";
-import type { FileStatus } from "@/types";
-import { Trash2, Search, X, CheckCircle2, AlertTriangle, Loader } from "lucide-react";
+import type { FileStatus, CleanupSettings } from "@/types";
+import { Trash2, Search, X, CheckCircle2, AlertTriangle, Loader, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import { readDb } from "@/lib/db";
 export default function DashboardPage() {
   const { user } = useAuth();
   const [files, setFiles] = useState<FileStatus[]>([]);
+  const [cleanupSettings, setCleanupSettings] = useState<CleanupSettings | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<FileStatus['status'] | 'all'>('all');
   const [isPending, startTransition] = useTransition();
@@ -25,6 +27,7 @@ export default function DashboardPage() {
     const fetchFiles = async () => {
       const db = await readDb();
       setFiles(db.fileStatuses);
+      setCleanupSettings(db.cleanupSettings);
     };
     fetchFiles();
   }, []);
@@ -40,21 +43,42 @@ export default function DashboardPage() {
     });
   };
 
+  const processedFiles = useMemo(() => {
+    if (!cleanupSettings?.timeout) return files;
+    
+    const now = new Date().getTime();
+    const timeoutValue = parseInt(cleanupSettings.timeout.value);
+    const timeoutUnit = cleanupSettings.timeout.unit;
+    const timeoutMs = timeoutUnit === 'hours' 
+        ? timeoutValue * 60 * 60 * 1000
+        : timeoutValue * 24 * 60 * 60 * 1000;
+
+    return files.map(file => {
+        if (file.status === 'processing') {
+            const lastUpdated = new Date(file.lastUpdated).getTime();
+            if (now - lastUpdated > timeoutMs) {
+                return { ...file, status: 'timed-out' };
+            }
+        }
+        return file;
+    });
+  }, [files, cleanupSettings]);
+
   const filteredFiles = useMemo(() => {
-    return files
+    return processedFiles
       .filter(file => statusFilter === 'all' || file.status === statusFilter)
       .filter(file => 
         file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         file.source.toLowerCase().includes(searchTerm.toLowerCase())
       );
-  }, [files, statusFilter, searchTerm]);
+  }, [processedFiles, statusFilter, searchTerm]);
 
   const statusCounts = useMemo(() => {
-    return files.reduce((acc, file) => {
+    return processedFiles.reduce((acc, file) => {
       acc[file.status] = (acc[file.status] || 0) + 1;
       return acc;
     }, {} as Record<FileStatus['status'], number>);
-  }, [files]);
+  }, [processedFiles]);
 
   return (
     <motion.div
@@ -78,7 +102,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-       <div className="grid gap-4 md:grid-cols-3">
+       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card className="bg-yellow-500/20 dark:bg-yellow-500/10 border-yellow-500 text-yellow-900 dark:text-yellow-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Processing</CardTitle>
@@ -106,6 +130,15 @@ export default function DashboardPage() {
                  <div className="text-2xl font-bold">{statusCounts.failed || 0}</div>
             </CardContent>
           </Card>
+          <Card className="bg-orange-500/20 dark:bg-orange-500/10 border-orange-500 text-orange-900 dark:text-orange-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Timed-out</CardTitle>
+              <Clock className="h-4 w-4 text-orange-500" />
+            </CardHeader>
+            <CardContent>
+                 <div className="text-2xl font-bold">{statusCounts['timed-out'] || 0}</div>
+            </CardContent>
+          </Card>
        </div>
 
       <Card>
@@ -130,9 +163,10 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center gap-2 flex-wrap">
                 <Button variant={statusFilter === 'all' ? 'default' : 'outline'} onClick={() => setStatusFilter('all')}>All</Button>
-                <Button variant={statusFilter === 'processing' ? 'secondary' : 'outline'} className={statusFilter === 'processing' ? 'bg-yellow-500/80 text-white' : ''} onClick={() => setStatusFilter('processing')}>Processing</Button>
-                <Button variant={statusFilter === 'published' ? 'secondary' : 'outline'} className={statusFilter === 'published' ? 'bg-green-500/80 text-white' : ''} onClick={() => setStatusFilter('published')}>Published</Button>
+                <Button variant={statusFilter === 'processing' ? 'secondary' : 'outline'} className={statusFilter === 'processing' ? 'bg-yellow-500/80 text-white hover:bg-yellow-500/70' : ''} onClick={() => setStatusFilter('processing')}>Processing</Button>
+                <Button variant={statusFilter === 'published' ? 'secondary' : 'outline'} className={statusFilter === 'published' ? 'bg-green-500/80 text-white hover:bg-green-500/70' : ''} onClick={() => setStatusFilter('published')}>Published</Button>
                 <Button variant={statusFilter === 'failed' ? 'destructive' : 'outline'} onClick={() => setStatusFilter('failed')}>Failed</Button>
+                <Button variant={statusFilter === 'timed-out' ? 'secondary' : 'outline'} className={statusFilter === 'timed-out' ? 'bg-orange-500/80 text-white hover:bg-orange-500/70' : ''} onClick={() => setStatusFilter('timed-out')}>Timed-out</Button>
             </div>
           </div>
           <FileStatusTable files={filteredFiles} />

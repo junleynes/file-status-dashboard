@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -26,6 +27,8 @@ export function FileStatusTable({ files }: FileStatusTableProps) {
         return 'bg-red-500/80 border-transparent text-white';
       case 'published':
         return 'bg-green-500/80 border-transparent text-white';
+      case 'timed-out':
+        return 'bg-orange-500/80 border-transparent text-white';
       default:
         return 'bg-secondary text-secondary-foreground';
     }

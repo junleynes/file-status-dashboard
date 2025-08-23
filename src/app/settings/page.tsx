@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useTransition } from "react";
@@ -8,7 +9,7 @@ import { useBranding } from "@/hooks/use-branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { MonitoredPaths, User } from "@/types";
+import type { MonitoredPaths, User, CleanupSettings } from "@/types";
 import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
@@ -32,8 +33,8 @@ import {
 } from "@/lib/actions";
 
 export default function SettingsPage() {
-  const { user, loading, users, addUser, removeUser, updateUserPassword } = useAuth();
-  const { brandName, logo, setBrandName, setLogo, brandingLoading } = useBranding();
+  const { user, loading, users, addUser, removeUser, updateUserPassword, refreshUsers } = useAuth();
+  const { brandName, logo, setBrandName, setLogo, brandingLoading, refreshBranding } = useBranding();
   const router = useRouter();
 
   const [paths, setPaths] = useState<MonitoredPaths>({ importPath: '', failedPath: '' });
@@ -51,10 +52,11 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState('');
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
-  const [statusCleanupValue, setStatusCleanupValue] = useState('7');
-  const [statusCleanupUnit, setStatusCleanupUnit] = useState<'hours' | 'days'>('days');
-  const [fileCleanupValue, setFileCleanupValue] = useState('30');
-  const [fileCleanupUnit, setFileCleanupUnit] = useState<'hours' | 'days'>('days');
+  const [cleanupSettings, setCleanupSettings] = useState<CleanupSettings>({
+      status: { value: '7', unit: 'days'},
+      files: { value: '30', unit: 'days'},
+      timeout: { value: '24', unit: 'hours'}
+  })
 
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -81,10 +83,7 @@ export default function SettingsPage() {
         const db = await readDb();
         setPaths(db.monitoredPaths);
         setExtensions(db.monitoredExtensions);
-        setStatusCleanupValue(db.cleanupSettings.status.value);
-        setStatusCleanupUnit(db.cleanupSettings.status.unit);
-        setFileCleanupValue(db.cleanupSettings.files.value);
-        setFileCleanupUnit(db.cleanupSettings.files.unit);
+        setCleanupSettings(db.cleanupSettings);
     }
     fetchData();
   }, [])
@@ -177,6 +176,7 @@ export default function SettingsPage() {
             setNewUserEmail('');
             setNewUserPassword('');
             setNewUserRole('user');
+            await refreshUsers();
         } else {
             toast({ title: "Error", description: "A user with this email already exists.", variant: "destructive" });
         }
@@ -190,6 +190,7 @@ export default function SettingsPage() {
     }
     startTransition(async () => {
         await removeUser(userId);
+        await refreshUsers();
         toast({ title: "User Removed", description: "The user has been removed successfully.", variant: "destructive" });
     });
   };
@@ -215,12 +216,23 @@ export default function SettingsPage() {
 
   const handleSaveCleanupSettings = () => {
     startTransition(async () => {
-        await updateCleanupSettings({
-            status: { value: statusCleanupValue, unit: statusCleanupUnit },
-            files: { value: fileCleanupValue, unit: fileCleanupUnit }
-        });
+        await updateCleanupSettings(cleanupSettings);
         toast({ title: "Cleanup Settings Saved", description: "Your cleanup preferences have been updated." });
     });
+  }
+
+  const handleCleanupSettingChange = <T extends keyof CleanupSettings, K extends keyof CleanupSettings[T]>(
+      category: T,
+      field: K,
+      value: CleanupSettings[T][K]
+  ) => {
+      setCleanupSettings(prev => ({
+          ...prev,
+          [category]: {
+              ...prev[category],
+              [field]: value
+          }
+      }))
   }
 
 
@@ -406,22 +418,45 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Cleanup Settings</CardTitle>
-          <CardDescription>Configure automatic cleanup rules for file statuses and monitored folders.</CardDescription>
+          <CardTitle>Cleanup & Timeout Settings</CardTitle>
+          <CardDescription>Configure automatic cleanup rules and processing timeouts.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="space-y-2">
+              <Label>Flag files as Timed-out after</Label>
+              <div className="flex items-center gap-2">
+                <Input 
+                  type="number" 
+                  className="w-24"
+                  value={cleanupSettings.timeout.value}
+                  onChange={(e) => handleCleanupSettingChange('timeout', 'value', e.target.value)}
+                  min="1"
+                  disabled={isPending}
+                />
+                <Select value={cleanupSettings.timeout.unit} onValueChange={(v: 'hours'|'days') => handleCleanupSettingChange('timeout', 'unit', v)} disabled={isPending}>
+                    <SelectTrigger className="w-[120px]">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="hours">Hours</SelectItem>
+                        <SelectItem value="days">Days</SelectItem>
+                    </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">Automatically flag files in 'Processing' as 'Timed-out' after this period.</p>
+          </div>
           <div className="space-y-2">
               <Label>Clear status from dashboard after</Label>
               <div className="flex items-center gap-2">
                 <Input 
                   type="number" 
                   className="w-24"
-                  value={statusCleanupValue}
-                  onChange={(e) => setStatusCleanupValue(e.target.value)}
+                  value={cleanupSettings.status.value}
+                  onChange={(e) => handleCleanupSettingChange('status', 'value', e.target.value)}
                   min="1"
                   disabled={isPending}
                 />
-                <Select value={statusCleanupUnit} onValueChange={(v: 'hours'|'days') => setStatusCleanupUnit(v)} disabled={isPending}>
+                <Select value={cleanupSettings.status.unit} onValueChange={(v: 'hours'|'days') => handleCleanupSettingChange('status', 'unit', v)} disabled={isPending}>
                     <SelectTrigger className="w-[120px]">
                         <SelectValue />
                     </SelectTrigger>
@@ -439,12 +474,12 @@ export default function SettingsPage() {
                 <Input 
                   type="number" 
                   className="w-24"
-                  value={fileCleanupValue}
-                  onChange={(e) => setFileCleanupValue(e.target.value)}
+                  value={cleanupSettings.files.value}
+                  onChange={(e) => handleCleanupSettingChange('files', 'value', e.target.value)}
                   min="1"
                   disabled={isPending}
                 />
-                <Select value={fileCleanupUnit} onValueChange={(v: 'hours' | 'days') => setFileCleanupUnit(v)} disabled={isPending}>
+                <Select value={cleanupSettings.files.unit} onValueChange={(v: 'hours' | 'days') => handleCleanupSettingChange('files', 'unit', v)} disabled={isPending}>
                     <SelectTrigger className="w-[120px]">
                         <SelectValue />
                     </SelectTrigger>
@@ -536,5 +571,3 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
-
-    
