@@ -50,12 +50,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const checkUser = async () => {
+      setLoading(true);
       try {
-        await refreshUsers();
         const storedCurrentUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
         if (storedCurrentUser) {
           setUser(JSON.parse(storedCurrentUser));
         }
+        await refreshUsers();
       } catch (error) {
         console.error("Failed to sync users or check current user", error);
       } finally {
@@ -123,5 +124,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
-
-    

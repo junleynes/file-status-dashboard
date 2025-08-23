@@ -44,12 +44,13 @@ const defaultFailedPath: MonitoredPath = {
 };
 
 export default function SettingsPage() {
-  const { user, loading, users, addUser, removeUser, updateUserPassword, refreshUsers } = useAuth();
+  const { user, loading, users, addUser, removeUser, updateUserPassword } = useAuth();
   const { brandName, logo, setBrandName, setLogo, brandingLoading } = useBranding();
   const router = useRouter();
 
   const [paths, setPaths] = useState<MonitoredPaths>({ import: [], failed: defaultFailedPath });
   const [editingPathId, setEditingPathId] = useState<string | null>(null);
+  const [originalPaths, setOriginalPaths] = useState<MonitoredPaths>({ import: [], failed: defaultFailedPath });
   
   const [extensions, setExtensions] = useState<string[]>([]);
   const [newExtension, setNewExtension] = useState('');
@@ -94,6 +95,7 @@ export default function SettingsPage() {
     const fetchData = async () => {
         const db = await readDb();
         setPaths(db.monitoredPaths);
+        setOriginalPaths(db.monitoredPaths);
         setExtensions(db.monitoredExtensions);
         setCleanupSettings(db.cleanupSettings);
     }
@@ -101,13 +103,29 @@ export default function SettingsPage() {
   }, [])
 
 
-  const handleSavePaths = () => {
+  const handleSavePath = (id: string) => {
     startTransition(async () => {
+        const path_to_save = paths.import.find(p => p.id === id) ?? paths.failed;
+        if (!path_to_save.name || !path_to_save.path || (path_to_save.type === 'network' && (!path_to_save.username || !path_to_save.password))) {
+             toast({ title: "Error", description: "Please fill in all required fields for the path.", variant: "destructive" });
+             return;
+        }
+
         await updateMonitoredPaths(paths);
-        toast({ title: "Paths Updated", description: `Monitored paths have been saved.` });
+        setOriginalPaths(paths);
+        toast({ title: "Path Saved", description: `Configuration for "${path_to_save.name}" has been saved.` });
         setEditingPathId(null);
     });
   };
+
+  const handleCancelEdit = (id: string) => {
+      if (originalPaths.import.find(p => p.id === id)?.name === '') {
+          handleRemoveImportPath(id);
+      } else {
+          setPaths(originalPaths);
+      }
+      setEditingPathId(null);
+  }
 
   const handleAddImportPath = () => {
     const newId = crypto.randomUUID();
@@ -124,7 +142,12 @@ export default function SettingsPage() {
   };
 
   const handleRemoveImportPath = (id: string) => {
-    setPaths(p => ({ ...p, import: p.import.filter(item => item.id !== id) }));
+    const updatedPaths = { ...paths, import: paths.import.filter(item => item.id !== id) };
+    setPaths(updatedPaths);
+    startTransition(async () => {
+        await updateMonitoredPaths(updatedPaths);
+        toast({ title: "Location Removed", variant: 'destructive', description: "Import location has been removed."});
+    });
   };
 
   const handleImportPathChange = <T extends keyof MonitoredPath>(id: string, field: T, value: MonitoredPath[T]) => {
@@ -287,7 +310,7 @@ export default function SettingsPage() {
   const renderPath = (p: MonitoredPath, isFailed: boolean) => {
     const isEditing = editingPathId === p.id;
     const handlePathChange = isFailed ? handleFailedPathChange : (field: keyof MonitoredPath, value: any) => handleImportPathChange(p.id, field, value);
-    const pathObject = isFailed ? paths.failed : p;
+    const pathObject = isFailed ? paths.failed : paths.import.find(i => i.id === p.id) ?? p;
 
     if (isEditing) {
         return (
@@ -326,9 +349,10 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 )}
-                <div className="absolute top-2 right-2 flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => setEditingPathId(null)}>
-                        <Check className="h-5 w-5 text-green-600" />
+                 <div className="flex gap-2 justify-end">
+                    <Button variant="ghost" onClick={() => handleCancelEdit(p.id)}>Cancel</Button>
+                    <Button onClick={() => handleSavePath(p.id)} disabled={isPending}>
+                        <Check className="mr-2 h-4 w-4" /> Save
                     </Button>
                 </div>
             </div>
@@ -341,7 +365,7 @@ export default function SettingsPage() {
                 <p className="font-medium">{p.name || <span className="text-muted-foreground italic">Unnamed</span>}</p>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                    <span className="flex items-center gap-1.5 capitalize">{p.type === 'local' ? <Folder className="h-4 w-4" /> : <Server className="h-4 w-4" />} {p.type}</span>
-                   <span>{p.path || <span className="italic">No path set</span>}</span>
+                   <span className="truncate max-w-xs">{p.path || <span className="italic">No path set</span>}</span>
                 </div>
             </div>
             <div className="flex items-center">
@@ -405,11 +429,6 @@ export default function SettingsPage() {
                      {renderPath(paths.failed, true)}
                  </div>
             </div>
-
-            <Button onClick={handleSavePaths} disabled={isPending}>
-              <Save className="mr-2 h-4 w-4" />
-              Save Monitored Locations
-            </Button>
         </CardContent>
       </Card>
 
@@ -553,10 +572,16 @@ export default function SettingsPage() {
           <CardTitle>Cleanup & Timeout Settings</CardTitle>
           <CardDescription>Configure automatic cleanup rules and processing timeouts.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-           <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-                <div className="space-y-0.5">
-                    <Label>Flag files as Timed-out</Label>
+        <CardContent className="space-y-4">
+           <div className="flex flex-row items-start space-x-4 rounded-lg border p-4">
+                <Switch
+                    id="timeout-enabled"
+                    checked={cleanupSettings.timeout.enabled}
+                    onCheckedChange={(checked) => handleCleanupSettingChange('timeout', 'enabled', checked)}
+                    disabled={isPending}
+                />
+                <div className="flex-1 space-y-1">
+                    <Label htmlFor="timeout-enabled">Flag files as Timed-out</Label>
                     <p className="text-xs text-muted-foreground">Automatically flag files in 'Processing' as 'Timed-out' after a set period.</p>
                      <div className="flex items-center gap-2 pt-2" style={{ opacity: cleanupSettings.timeout.enabled ? 1 : 0.5 }}>
                         <Input 
@@ -578,16 +603,17 @@ export default function SettingsPage() {
                         </Select>
                     </div>
                 </div>
-                <Switch
-                    checked={cleanupSettings.timeout.enabled}
-                    onCheckedChange={(checked) => handleCleanupSettingChange('timeout', 'enabled', checked)}
-                    disabled={isPending}
-                />
             </div>
 
-            <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-                 <div className="space-y-0.5">
-                    <Label>Clear status from dashboard</Label>
+            <div className="flex flex-row items-start space-x-4 rounded-lg border p-4">
+                 <Switch
+                    id="status-enabled"
+                    checked={cleanupSettings.status.enabled}
+                    onCheckedChange={(checked) => handleCleanupSettingChange('status', 'enabled', checked)}
+                    disabled={isPending}
+                />
+                 <div className="flex-1 space-y-1">
+                    <Label htmlFor="status-enabled">Clear status from dashboard</Label>
                     <p className="text-xs text-muted-foreground">Automatically remove file status entries from the dashboard after a set period.</p>
                     <div className="flex items-center gap-2 pt-2" style={{ opacity: cleanupSettings.status.enabled ? 1 : 0.5 }}>
                         <Input 
@@ -609,16 +635,17 @@ export default function SettingsPage() {
                         </Select>
                     </div>
                 </div>
-                <Switch
-                    checked={cleanupSettings.status.enabled}
-                    onCheckedChange={(checked) => handleCleanupSettingChange('status', 'enabled', checked)}
-                    disabled={isPending}
-                />
             </div>
 
-            <div className="flex flex-row items-center justify-between rounded-lg border p-4">
-                <div className="space-y-0.5">
-                    <Label>Clear files from monitored folders</Label>
+            <div className="flex flex-row items-start space-x-4 rounded-lg border p-4">
+                <Switch
+                    id="files-enabled"
+                    checked={cleanupSettings.files.enabled}
+                    onCheckedChange={(checked) => handleCleanupSettingChange('files', 'enabled', checked)}
+                    disabled={isPending}
+                />
+                <div className="flex-1 space-y-1">
+                    <Label htmlFor="files-enabled">Clear files from monitored folders</Label>
                     <p className="text-xs text-muted-foreground">Automatically delete files from their source folders after a set period.</p>
                     <div className="flex items-center gap-2 pt-2" style={{ opacity: cleanupSettings.files.enabled ? 1 : 0.5 }}>
                         <Input 
@@ -640,11 +667,6 @@ export default function SettingsPage() {
                         </Select>
                     </div>
                 </div>
-                <Switch
-                    checked={cleanupSettings.files.enabled}
-                    onCheckedChange={(checked) => handleCleanupSettingChange('files', 'enabled', checked)}
-                    disabled={isPending}
-                />
             </div>
 
           <Button onClick={handleSaveCleanupSettings} disabled={isPending}>
@@ -727,5 +749,3 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
-
-    

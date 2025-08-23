@@ -16,19 +16,19 @@
   "monitoredPaths": {
     "import": [
       {
-        "id": "0ec13bef-1c1d-42a0-8acb-ea359de03de4",
-        "name": "",
+        "id": "f900740f-28db-4452-9ac5-bd2ef5b965a8",
+        "name": "main",
         "type": "local",
-        "path": "",
+        "path": "/home/postmams",
         "username": "",
         "password": ""
       }
     ],
     "failed": {
       "id": "failed-path",
-      "name": "Failed",
+      "name": "transit",
       "type": "local",
-      "path": "",
+      "path": "/home/postmams/transit",
       "username": "",
       "password": ""
     }
