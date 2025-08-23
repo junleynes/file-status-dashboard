@@ -1,3 +1,4 @@
+
 {
   "users": [
     {
@@ -14,21 +15,19 @@
     "logo": null
   },
   "monitoredPaths": {
-    "import": [
-      {
-        "id": "f900740f-28db-4452-9ac5-bd2ef5b965a8",
-        "name": "main",
-        "type": "local",
-        "path": "/home/postmams",
-        "username": "",
-        "password": ""
-      }
-    ],
+    "import": {
+      "id": "import-path",
+      "name": "Import",
+      "type": "local",
+      "path": "/home/user/transit/import",
+      "username": "",
+      "password": ""
+    },
     "failed": {
       "id": "failed-path",
-      "name": "transit",
+      "name": "Failed",
       "type": "local",
-      "path": "/home/postmams/transit",
+      "path": "/home/user/transit/failed",
       "username": "",
       "password": ""
     }

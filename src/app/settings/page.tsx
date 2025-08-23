@@ -34,6 +34,15 @@ import {
 } from "@/lib/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
+const defaultImportPath: MonitoredPath = {
+  id: 'import-path',
+  name: 'Import',
+  type: 'local',
+  path: '',
+  username: '',
+  password: ''
+};
+
 const defaultFailedPath: MonitoredPath = {
   id: 'failed-path',
   name: 'Failed',
@@ -48,9 +57,8 @@ export default function SettingsPage() {
   const { brandName, logo, setBrandName, setLogo, brandingLoading } = useBranding();
   const router = useRouter();
 
-  const [paths, setPaths] = useState<MonitoredPaths>({ import: [], failed: defaultFailedPath });
+  const [paths, setPaths] = useState<MonitoredPaths>({ import: defaultImportPath, failed: defaultFailedPath });
   const [editingPathId, setEditingPathId] = useState<string | null>(null);
-  const [originalPaths, setOriginalPaths] = useState<MonitoredPaths>({ import: [], failed: defaultFailedPath });
   
   const [extensions, setExtensions] = useState<string[]>([]);
   const [newExtension, setNewExtension] = useState('');
@@ -95,7 +103,6 @@ export default function SettingsPage() {
     const fetchData = async () => {
         const db = await readDb();
         setPaths(db.monitoredPaths);
-        setOriginalPaths(db.monitoredPaths);
         setExtensions(db.monitoredExtensions);
         setCleanupSettings(db.cleanupSettings);
     }
@@ -103,64 +110,35 @@ export default function SettingsPage() {
   }, [])
 
 
-  const handleSavePath = (id: string) => {
+  const handleSavePaths = () => {
     startTransition(async () => {
-        const path_to_save = paths.import.find(p => p.id === id) ?? paths.failed;
-        if (!path_to_save.name || !path_to_save.path || (path_to_save.type === 'network' && (!path_to_save.username || !path_to_save.password))) {
-             toast({ title: "Error", description: "Please fill in all required fields for the path.", variant: "destructive" });
+        const { import: importPath, failed: failedPath } = paths;
+        if (!importPath.name || !importPath.path || (importPath.type === 'network' && (!importPath.username || !importPath.password))) {
+             toast({ title: "Error", description: "Please fill in all required fields for the Import Location.", variant: "destructive" });
+             return;
+        }
+        if (!failedPath.name || !failedPath.path || (failedPath.type === 'network' && (!failedPath.username || !failedPath.password))) {
+             toast({ title: "Error", description: "Please fill in all required fields for the Failed Location.", variant: "destructive" });
              return;
         }
 
         await updateMonitoredPaths(paths);
-        setOriginalPaths(paths);
-        toast({ title: "Path Saved", description: `Configuration for "${path_to_save.name}" has been saved.` });
+        toast({ title: "Locations Saved", description: `Configuration for monitored locations has been saved.` });
         setEditingPathId(null);
     });
   };
 
-  const handleCancelEdit = (id: string) => {
-      if (originalPaths.import.find(p => p.id === id)?.name === '') {
-          handleRemoveImportPath(id);
-      } else {
-          setPaths(originalPaths);
-      }
-      setEditingPathId(null);
-  }
-
-  const handleAddImportPath = () => {
-    const newId = crypto.randomUUID();
-    const newPath: MonitoredPath = {
-      id: newId,
-      name: '',
-      type: 'local',
-      path: '',
-      username: '',
-      password: ''
-    };
-    setPaths(p => ({ ...p, import: [...p.import, newPath]}));
-    setEditingPathId(newId);
-  };
-
-  const handleRemoveImportPath = (id: string) => {
-    const updatedPaths = { ...paths, import: paths.import.filter(item => item.id !== id) };
-    setPaths(updatedPaths);
-    startTransition(async () => {
-        await updateMonitoredPaths(updatedPaths);
-        toast({ title: "Location Removed", variant: 'destructive', description: "Import location has been removed."});
-    });
-  };
-
-  const handleImportPathChange = <T extends keyof MonitoredPath>(id: string, field: T, value: MonitoredPath[T]) => {
-    setPaths(p => ({
-      ...p,
-      import: p.import.map(item => item.id === id ? { ...item, [field]: value } : item)
-    }));
-  };
-  
-  const handleFailedPathChange = <T extends keyof MonitoredPath>(field: T, value: MonitoredPath[T]) => {
-    setPaths(p => ({
-        ...p,
-        failed: { ...p.failed, [field]: value }
+  const handlePathChange = (
+    type: 'import' | 'failed', 
+    field: keyof MonitoredPath, 
+    value: MonitoredPath[keyof MonitoredPath]
+  ) => {
+    setPaths(prev => ({
+        ...prev,
+        [type]: {
+            ...prev[type],
+            [field]: value
+        }
     }));
   };
 
@@ -307,77 +285,45 @@ export default function SettingsPage() {
     return null;
   }
 
-  const renderPath = (p: MonitoredPath, isFailed: boolean) => {
-    const isEditing = editingPathId === p.id;
-    const handlePathChange = isFailed ? handleFailedPathChange : (field: keyof MonitoredPath, value: any) => handleImportPathChange(p.id, field, value);
-    const pathObject = isFailed ? paths.failed : paths.import.find(i => i.id === p.id) ?? p;
-
-    if (isEditing) {
-        return (
-            <div className="rounded-lg border p-4 space-y-4 relative bg-muted/20">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor={`name-${p.id}`}>Name</Label>
-                        <Input id={`name-${p.id}`} placeholder="e.g., Main Storage" value={pathObject.name} onChange={e => handlePathChange('name', e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor={`type-${p.id}`}>Type</Label>
-                        <Select value={pathObject.type} onValueChange={(v: 'local' | 'network') => handlePathChange('type', v)}>
-                            <SelectTrigger id={`type-${p.id}`}>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="local"><div className="flex items-center gap-2"><Folder className="h-4 w-4" /> Local</div></SelectItem>
-                                <SelectItem value="network"><div className="flex items-center gap-2"><Server className="h-4 w-4" /> Network (SMB)</div></SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor={`path-${p.id}`}>Path</Label>
-                    <Input id={`path-${p.id}`} placeholder="e.g., /mnt/storage/import or \\\\server\\share" value={pathObject.path} onChange={e => handlePathChange('path', e.target.value)} />
-                </div>
-                {pathObject.type === 'network' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor={`user-${p.id}`}>Username</Label>
-                            <Input id={`user-${p.id}`} placeholder="Required" value={pathObject.username} onChange={e => handlePathChange('username', e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor={`pass-${p.id}`}>Password</Label>
-                            <Input id={`pass-${p.id}`} type="password" placeholder="Required" value={pathObject.password} onChange={e => handlePathChange('password', e.target.value)} />
-                        </div>
-                    </div>
-                )}
-                 <div className="flex gap-2 justify-end">
-                    <Button variant="ghost" onClick={() => handleCancelEdit(p.id)}>Cancel</Button>
-                    <Button onClick={() => handleSavePath(p.id)} disabled={isPending}>
-                        <Check className="mr-2 h-4 w-4" /> Save
-                    </Button>
-                </div>
-            </div>
-        )
-    }
+  const renderPath = (p: MonitoredPath, type: 'import' | 'failed') => {
+    const handlePathChange = (field: keyof MonitoredPath, value: any) => handlePathChange(type, field, value);
 
     return (
-        <div className="flex items-center justify-between rounded-lg border p-4">
-            <div className="flex flex-col gap-1">
-                <p className="font-medium">{p.name || <span className="text-muted-foreground italic">Unnamed</span>}</p>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                   <span className="flex items-center gap-1.5 capitalize">{p.type === 'local' ? <Folder className="h-4 w-4" /> : <Server className="h-4 w-4" />} {p.type}</span>
-                   <span className="truncate max-w-xs">{p.path || <span className="italic">No path set</span>}</span>
+        <div className="rounded-lg border p-4 space-y-4 relative bg-muted/20">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor={`name-${p.id}`}>Name</Label>
+                    <Input id={`name-${p.id}`} placeholder="e.g., Main Storage" value={p.name} onChange={e => handlePathChange('name', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor={`type-${p.id}`}>Type</Label>
+                    <Select value={p.type} onValueChange={(v: 'local' | 'network') => handlePathChange('type', v)}>
+                        <SelectTrigger id={`type-${p.id}`}>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="local"><div className="flex items-center gap-2"><Folder className="h-4 w-4" /> Local</div></SelectItem>
+                            <SelectItem value="network"><div className="flex items-center gap-2"><Server className="h-4 w-4" /> Network (SMB)</div></SelectItem>
+                        </SelectContent>
+                    </Select>
                 </div>
             </div>
-            <div className="flex items-center">
-                <Button variant="ghost" size="icon" onClick={() => setEditingPathId(p.id)}>
-                    <Edit className="h-4 w-4" />
-                </Button>
-                {!isFailed && (
-                     <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoveImportPath(p.id)}>
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                )}
+            <div className="space-y-2">
+                <Label htmlFor={`path-${p.id}`}>Path</Label>
+                <Input id={`path-${p.id}`} placeholder="e.g., /mnt/storage/import or \\\\server\\share" value={p.path} onChange={e => handlePathChange('path', e.target.value)} />
             </div>
+            {p.type === 'network' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor={`user-${p.id}`}>Username</Label>
+                        <Input id={`user-${p.id}`} placeholder="Required" value={p.username} onChange={e => handlePathChange('username', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor={`pass-${p.id}`}>Password</Label>
+                        <Input id={`pass-${p.id}`} type="password" placeholder="Required" value={p.password} onChange={e => handlePathChange('password', e.target.value)} />
+                    </div>
+                </div>
+            )}
         </div>
     )
   }
@@ -399,36 +345,25 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Monitored Locations</CardTitle>
-          <CardDescription>Define the import locations and the single failed folder to be monitored by the application.</CardDescription>
+          <CardDescription>Define the import and failed locations to be monitored by the application.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
             <div>
-              <Label className="text-base font-medium">Import Locations</Label>
-              <div className="space-y-4 mt-2">
-                <AnimatePresence>
-                {paths.import.map((p) => (
-                  <motion.div 
-                    key={p.id}
-                    layout
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, x: -20, height: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {renderPath(p, false)}
-                  </motion.div>
-                ))}
-                </AnimatePresence>
-                <Button variant="outline" onClick={handleAddImportPath}><PlusCircle className="mr-2 h-4 w-4" />Add Location</Button>
+              <Label className="text-base font-medium">Import Location</Label>
+              <div className="mt-2">
+                {renderPath(paths.import, 'import')}
               </div>
             </div>
             
             <div>
-                 <Label className="text-base font-medium">Failed Folder</Label>
+                 <Label className="text-base font-medium">Failed Location</Label>
                  <div className="mt-2">
-                     {renderPath(paths.failed, true)}
+                     {renderPath(paths.failed, 'failed')}
                  </div>
             </div>
+            <Button onClick={handleSavePaths} disabled={isPending}>
+                <FolderCog className="mr-2 h-4 w-4" /> Save Locations
+            </Button>
         </CardContent>
       </Card>
 

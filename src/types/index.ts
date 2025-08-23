@@ -26,7 +26,7 @@ export type MonitoredPath = {
 }
 
 export type MonitoredPaths = {
-  import: MonitoredPath[];
+  import: MonitoredPath;
   failed: MonitoredPath;
 };
 
