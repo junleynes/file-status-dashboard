@@ -21,13 +21,13 @@ export type MonitoredPath = {
   name: string;
   type: 'local' | 'network';
   path: string;
-  username?: string;
-  password?: string;
+  username: string;
+  password: string;
 }
 
 export type MonitoredPaths = {
   import: MonitoredPath[];
-  failed: string;
+  failed: MonitoredPath;
 };
 
 

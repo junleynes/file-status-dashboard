@@ -34,12 +34,21 @@ import {
 } from "@/lib/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
+const defaultFailedPath: MonitoredPath = {
+  id: 'failed-path',
+  name: 'Failed',
+  type: 'local',
+  path: '',
+  username: '',
+  password: ''
+};
+
 export default function SettingsPage() {
   const { user, loading, users, addUser, removeUser, updateUserPassword, refreshUsers } = useAuth();
   const { brandName, logo, setBrandName, setLogo, brandingLoading } = useBranding();
   const router = useRouter();
 
-  const [paths, setPaths] = useState<MonitoredPaths>({ import: [], failed: '' });
+  const [paths, setPaths] = useState<MonitoredPaths>({ import: [], failed: defaultFailedPath });
   
   const [extensions, setExtensions] = useState<string[]>([]);
   const [newExtension, setNewExtension] = useState('');
@@ -120,7 +129,13 @@ export default function SettingsPage() {
       import: p.import.map(item => item.id === id ? { ...item, [field]: value } : item)
     }));
   };
-
+  
+  const handleFailedPathChange = <T extends keyof MonitoredPath>(field: T, value: MonitoredPath[T]) => {
+    setPaths(p => ({
+        ...p,
+        failed: { ...p.failed, [field]: value }
+    }));
+  };
 
   const handleAddExtension = (e: React.FormEvent) => {
     e.preventDefault();
@@ -291,7 +306,7 @@ export default function SettingsPage() {
               <Label className="text-base font-medium">Import Volumes</Label>
               <div className="space-y-4 mt-2">
                 <AnimatePresence>
-                {paths.import.map((p, index) => (
+                {paths.import.map((p) => (
                   <motion.div 
                     key={p.id}
                     layout
@@ -327,11 +342,11 @@ export default function SettingsPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          <div className="space-y-2">
                           <Label htmlFor={`import-user-${p.id}`}>Username</Label>
-                          <Input id={`import-user-${p.id}`} placeholder="Optional" value={p.username} onChange={e => handleImportPathChange(p.id, 'username', e.target.value)} />
+                          <Input id={`import-user-${p.id}`} placeholder="Required" value={p.username} onChange={e => handleImportPathChange(p.id, 'username', e.target.value)} />
                         </div>
                          <div className="space-y-2">
                           <Label htmlFor={`import-pass-${p.id}`}>Password</Label>
-                          <Input id={`import-pass-${p.id}`} type="password" placeholder="Optional" value={p.password} onChange={e => handleImportPathChange(p.id, 'password', e.target.value)} />
+                          <Input id={`import-pass-${p.id}`} type="password" placeholder="Required" value={p.password} onChange={e => handleImportPathChange(p.id, 'password', e.target.value)} />
                         </div>
                       </div>
                     )}
@@ -344,17 +359,47 @@ export default function SettingsPage() {
                 <Button variant="outline" onClick={handleAddImportPath}><PlusCircle className="mr-2 h-4 w-4" />Add Import Volume</Button>
               </div>
             </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="failed-path" className="text-base font-medium">Failed Folder</Label>
-                <Input
-                  id="failed-path"
-                  placeholder="e.g., /mnt/storage/failed or C:\\Users\\...\\failed"
-                  value={paths.failed}
-                  onChange={(e) => setPaths(p => ({...p, failed: e.target.value}))}
-                  disabled={isPending}
-                />
+            
+            <div>
+                 <Label className="text-base font-medium">Failed Folder</Label>
+                 <div className="rounded-lg border p-4 space-y-4 mt-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="failed-name">Name</Label>
+                            <Input id="failed-name" value={paths.failed.name} onChange={e => handleFailedPathChange('name', e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="failed-type">Type</Label>
+                            <Select value={paths.failed.type} onValueChange={(v: 'local'|'network') => handleFailedPathChange('type', v)}>
+                                <SelectTrigger id="failed-type">
+                                    <SelectValue/>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="local"><div className="flex items-center gap-2"><Folder className="h-4 w-4" /> Local</div></SelectItem>
+                                    <SelectItem value="network"><div className="flex items-center gap-2"><Server className="h-4 w-4" /> Network (SMB)</div></SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="failed-path-input">Path</Label>
+                        <Input id="failed-path-input" placeholder="e.g., /mnt/storage/failed or \\\\server\\failed" value={paths.failed.path} onChange={e => handleFailedPathChange('path', e.target.value)} />
+                    </div>
+                    {paths.failed.type === 'network' && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="failed-user">Username</Label>
+                                <Input id="failed-user" placeholder="Required" value={paths.failed.username} onChange={e => handleFailedPathChange('username', e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="failed-pass">Password</Label>
+                                <Input id="failed-pass" type="password" placeholder="Required" value={paths.failed.password} onChange={e => handleFailedPathChange('password', e.target.value)} />
+                            </div>
+                        </div>
+                    )}
+                 </div>
             </div>
+
             <Button onClick={handleSavePaths} disabled={isPending}>
               <Save className="mr-2 h-4 w-4" />
               Save Monitored Paths

@@ -16,7 +16,14 @@
   },
   "monitoredPaths": {
     "import": [],
-    "failed": ""
+    "failed": {
+      "id": "failed-path",
+      "name": "Failed",
+      "type": "local",
+      "path": "",
+      "username": "",
+      "password": ""
+    }
   },
   "monitoredExtensions": [
     "mov",
