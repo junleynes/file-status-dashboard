@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useTransition } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   SidebarProvider,
@@ -39,11 +39,102 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuPortal
 } from '@/components/ui/dropdown-menu';
-import { BarChartIcon, CogIcon, LogOutIcon, Moon, Sun, Laptop, KeyRound } from 'lucide-react';
+import { BarChartIcon, CogIcon, LogOutIcon, Moon, Sun, Laptop, KeyRound, UserCircle, UploadCloud, XCircle } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { useTheme } from "next-themes";
 import { BrandLogo } from './brand-logo';
 import { useToast } from '@/hooks/use-toast';
+
+
+function ProfileDialog() {
+  const { user, updateUser, refreshCurrentUser } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const { toast } = useToast();
+
+   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!user) return;
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                startTransition(async () => {
+                    await updateUser({ ...user, avatar: reader.result as string });
+                    await refreshCurrentUser();
+                    toast({ title: "Profile Picture Updated", description: "Your new picture has been saved." });
+                    setIsOpen(false);
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleClearAvatar = () => {
+        if (!user) return;
+        startTransition(async () => {
+            await updateUser({ ...user, avatar: null });
+            await refreshCurrentUser();
+            toast({ title: "Profile Picture Cleared", description: "Your profile picture has been removed.", variant: "destructive" });
+            setIsOpen(false);
+        });
+    };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+          <UserCircle className="mr-2 h-4 w-4" />
+          <span>My Profile</span>
+        </DropdownMenuItem>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>My Profile</DialogTitle>
+          <DialogDescription>
+            Update your personal information and profile picture.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-6 py-4">
+             <div className="space-y-2">
+                <Label>Profile Picture</Label>
+                <div className="flex items-center gap-4">
+                     <Avatar className="h-20 w-20">
+                        {user?.avatar && <AvatarImage src={user.avatar} alt={user.name ?? ''} />}
+                        <AvatarFallback className="text-3xl">
+                            {user?.name?.[0].toUpperCase()}
+                        </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col gap-2">
+                        <Input id="avatar-upload" type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" disabled={isPending} />
+                        <Button asChild variant="outline" disabled={isPending}>
+                            <label htmlFor="avatar-upload">
+                                <UploadCloud className="mr-2 h-4 w-4" />
+                                Upload Picture
+                            </label>
+                        </Button>
+                        {user?.avatar && (
+                            <Button variant="destructive" onClick={handleClearAvatar} disabled={isPending}>
+                                <XCircle className="mr-2 h-4 w-4" />
+                                Clear
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </div>
+             <div className="space-y-2">
+                <Label>Name</Label>
+                <Input value={user?.name} disabled />
+            </div>
+             <div className="space-y-2">
+                <Label>Email</Label>
+                <Input value={user?.email} disabled />
+            </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 
 function ChangePasswordDialog() {
   const { user, updateOwnPassword } = useAuth();
@@ -220,6 +311,7 @@ function Header() {
                 </DropdownMenuSubContent>
             </DropdownMenuPortal>
           </DropdownMenuSub>
+          <ProfileDialog />
           <ChangePasswordDialog />
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>
