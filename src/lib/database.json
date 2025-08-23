@@ -1,4 +1,3 @@
-
 {
   "users": [
     {
@@ -39,7 +38,7 @@
   "fileStatuses": [],
   "cleanupSettings": {
     "status": {
-      "enabled": true,
+      "enabled": false,
       "value": "7",
       "unit": "days"
     },
@@ -49,7 +48,7 @@
       "unit": "days"
     },
     "timeout": {
-      "enabled": true,
+      "enabled": false,
       "value": "24",
       "unit": "hours"
     }
