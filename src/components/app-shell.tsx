@@ -331,8 +331,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (brandName) {
-      document.title = brandName;
+    if (typeof window !== 'undefined') {
+        document.title = brandName;
     }
   }, [brandName]);
 
@@ -400,3 +400,5 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
+
+    

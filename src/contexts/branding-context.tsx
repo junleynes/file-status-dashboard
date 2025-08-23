@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
@@ -17,7 +18,7 @@ interface BrandingContextType {
 export const BrandingContext = createContext<BrandingContextType | undefined>(undefined);
 
 export function BrandingProvider({ children }: { children: ReactNode }) {
-  const [brandName, setBrandNameState] = useState<string>('Your Brand');
+  const [brandName, setBrandNameState] = useState<string>('FileStatus Tracker');
   const [logo, setLogoState] = useState<string | null>(null);
   const [brandingLoading, setBrandingLoading] = useState(true);
 
@@ -41,11 +42,13 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   }, [refreshBranding]);
 
   const setBrandName = async (name: string) => {
+    setBrandNameState(name);
     await updateBrandingSettings({ brandName: name, logo: logo });
     await refreshBranding();
   };
 
   const setLogo = async (logoData: string | null) => {
+    setLogoState(logoData);
     await updateBrandingSettings({ brandName: brandName, logo: logoData });
     await refreshBranding();
   };
@@ -54,3 +57,5 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
 
   return <BrandingContext.Provider value={value}>{children}</BrandingContext.Provider>;
 }
+
+    
