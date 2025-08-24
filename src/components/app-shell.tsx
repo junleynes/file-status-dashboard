@@ -331,10 +331,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && !brandingLoading) {
         document.title = brandName;
     }
-  }, [brandName]);
+  }, [brandName, brandingLoading]);
 
   useEffect(() => {
     if (!loading && !user && pathname !== '/login') {
@@ -400,5 +400,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-
-    

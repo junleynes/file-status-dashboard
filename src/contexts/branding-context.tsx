@@ -42,11 +42,13 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   }, [refreshBranding]);
 
   const setBrandName = async (name: string) => {
+    setBrandNameState(name); // Optimistically update the state
     await updateBrandingSettings({ brandName: name, logo: logo });
     await refreshBranding();
   };
 
   const setLogo = async (logoData: string | null) => {
+    setLogoState(logoData); // Optimistically update the state
     await updateBrandingSettings({ brandName: brandName, logo: logoData });
     await refreshBranding();
   };
