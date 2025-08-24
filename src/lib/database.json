@@ -1,3 +1,4 @@
+
 {
   "users": [
     {
@@ -10,7 +11,7 @@
     }
   ],
   "branding": {
-    "brandName": "FileStatus Tracker",
+    "brandName": "Publish Lookout",
     "logo": null
   },
   "monitoredPaths": {

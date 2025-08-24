@@ -61,7 +61,7 @@ export default function LoginPage() {
             <BrandLogo className="h-8 w-8 text-primary" />
           </div>
           <CardTitle>{brandName}</CardTitle>
-          <CardDescription>Sign in to monitor your files</CardDescription>
+          <CardDescription>Sign in to monitor and stay in control</CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">
