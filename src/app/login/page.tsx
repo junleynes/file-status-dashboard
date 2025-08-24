@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -20,7 +21,7 @@ import { BrandLogo } from '@/components/brand-logo';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('admin@example.com');
-  const [password, setPassword] = useState('password123');
+  const [password, setPassword] = useState('P@ssw0rd');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const { brandName } = useBranding();
