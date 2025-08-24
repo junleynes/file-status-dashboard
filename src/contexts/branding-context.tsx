@@ -18,7 +18,7 @@ interface BrandingContextType {
 export const BrandingContext = createContext<BrandingContextType | undefined>(undefined);
 
 export function BrandingProvider({ children }: { children: ReactNode }) {
-  const [brandName, setBrandNameState] = useState<string>('FileStatus Tracker');
+  const [brandName, setBrandNameState] = useState<string>('');
   const [logo, setLogoState] = useState<string | null>(null);
   const [brandingLoading, setBrandingLoading] = useState(true);
 
@@ -42,13 +42,11 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   }, [refreshBranding]);
 
   const setBrandName = async (name: string) => {
-    setBrandNameState(name); // Optimistically update the state
     await updateBrandingSettings({ brandName: name, logo: logo });
     await refreshBranding();
   };
 
   const setLogo = async (logoData: string | null) => {
-    setLogoState(logoData); // Optimistically update the state
     await updateBrandingSettings({ brandName: brandName, logo: logoData });
     await refreshBranding();
   };

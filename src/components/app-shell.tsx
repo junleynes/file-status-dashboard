@@ -33,7 +33,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -331,7 +330,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && !brandingLoading) {
+    if (typeof window !== 'undefined' && !brandingLoading && brandName) {
         document.title = brandName;
     }
   }, [brandName, brandingLoading]);
