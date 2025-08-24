@@ -326,7 +326,7 @@ function Header() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  const { brandName, brandingLoading } = useBranding();
+  const { brandName, footerText, brandingLoading } = useBranding();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -396,7 +396,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Header />
           <main className="flex-1 p-4 md:p-6">{children}</main>
           <footer className="border-t py-4 px-6 text-center text-xs text-muted-foreground">
-            {brandName} Copyright 2025.
+            {footerText}
           </footer>
         </div>
       </div>

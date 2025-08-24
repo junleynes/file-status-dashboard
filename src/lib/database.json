@@ -1,3 +1,4 @@
+
 {
   "users": [
     {
@@ -19,7 +20,8 @@
   ],
   "branding": {
     "brandName": "Publish Lookout",
-    "logo": null
+    "logo": null,
+    "footerText": "Publish Lookout Copyright 2025."
   },
   "monitoredPaths": {
     "import": {

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MonitoredPath, MonitoredPaths, User, CleanupSettings } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check } from "lucide-react";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -54,7 +54,7 @@ const defaultFailedPath: MonitoredPath = {
 
 export default function SettingsPage() {
   const { user, loading, users, addUser, removeUser, updateUserPassword, refreshUsers } = useAuth();
-  const { brandName, logo, setBrandName, setLogo, brandingLoading } = useBranding();
+  const { brandName, logo, footerText, setBrandName, setLogo, setFooterText, brandingLoading } = useBranding();
   const router = useRouter();
 
   const [paths, setPaths] = useState<MonitoredPaths>({ import: defaultImportPath, failed: defaultFailedPath });
@@ -63,6 +63,7 @@ export default function SettingsPage() {
   const [extensions, setExtensions] = useState<string[]>([]);
   const [newExtension, setNewExtension] = useState('');
   const [localBrandName, setLocalBrandName] = useState(brandName);
+  const [localFooterText, setLocalFooterText] = useState(footerText);
 
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -96,8 +97,9 @@ export default function SettingsPage() {
   useEffect(() => {
     if(!brandingLoading) {
       setLocalBrandName(brandName);
+      setLocalFooterText(footerText);
     }
-  }, [brandName, brandingLoading]);
+  }, [brandName, footerText, brandingLoading]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -196,6 +198,18 @@ export default function SettingsPage() {
         toast({ title: "Brand Name Updated", description: "Your new brand name has been saved." });
     });
   }
+
+  const handleFooterTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setLocalFooterText(e.target.value);
+  }
+
+  const handleFooterTextSave = () => {
+     startTransition(async () => {
+        await setFooterText(localFooterText);
+        toast({ title: "Footer Text Updated", description: "Your new footer text has been saved." });
+    });
+  }
+
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -659,6 +673,13 @@ export default function SettingsPage() {
                             </Button>
                         )}
                     </div>
+                </div>
+            </div>
+             <div className="space-y-2">
+                <Label htmlFor="footer-text">Footer Text</Label>
+                <div className="flex gap-2">
+                    <Input id="footer-text" value={localFooterText} onChange={handleFooterTextChange} disabled={isPending} />
+                    <Button onClick={handleFooterTextSave} disabled={isPending || localFooterText === footerText}>Save</Button>
                 </div>
             </div>
         </CardContent>

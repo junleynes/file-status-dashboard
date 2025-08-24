@@ -46,6 +46,7 @@ export type CleanupSettings = {
 export type BrandingSettings = {
   brandName: string;
   logo: string | null;
+  footerText: string;
 }
 
 export type Database = {
