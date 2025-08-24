@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { BrandLogo } from '@/components/brand-logo';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('admin@example.com');
+  const [email, setEmail] = useState('user@example.com');
   const [password, setPassword] = useState('P@ssw0rd');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
