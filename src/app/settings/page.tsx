@@ -205,7 +205,7 @@ export default function SettingsPage() {
     }
     startTransition(async () => {
         const success = await addUser({
-            id: crypto.randomUUID(),
+            id: 'user-' + Date.now(),
             name: newUserName,
             email: newUserEmail,
             password: newUserPassword,
@@ -690,3 +690,5 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
+
+    
