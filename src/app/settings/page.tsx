@@ -379,7 +379,8 @@ export default function SettingsPage() {
           <CardDescription>Add, remove, and manage user accounts.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleAddUser} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 items-end">
+          <form onSubmit={handleAddUser} className="mb-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] gap-4 items-end">
               <div className="space-y-2">
                   <Label htmlFor="new-user-name">Name</Label>
                   <Input id="new-user-name" placeholder="John Doe" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} disabled={isPending} />
@@ -405,7 +406,8 @@ export default function SettingsPage() {
                       </div>
                   </RadioGroup>
               </div>
-              <Button type="submit" className="w-full lg:col-span-4" disabled={isPending}>
+            </div>
+             <Button type="submit" disabled={isPending}>
                   <UserPlus className="mr-2 h-4 w-4" />
                   Add User
               </Button>
@@ -690,5 +692,3 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
-
-    
