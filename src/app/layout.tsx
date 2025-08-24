@@ -10,7 +10,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'Your Brand',
+  title: 'FileStatus Tracker',
   description: 'A custom application built with Firebase Studio.',
 };
 
