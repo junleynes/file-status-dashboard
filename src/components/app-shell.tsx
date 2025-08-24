@@ -36,7 +36,8 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-  DropdownMenuPortal
+  DropdownMenuPortal,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { BarChartIcon, CogIcon, LogOutIcon, Moon, Sun, Laptop, KeyRound, UserCircle, UploadCloud, XCircle } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
