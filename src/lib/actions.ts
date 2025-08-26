@@ -4,6 +4,22 @@
 import { revalidatePath } from 'next/cache';
 import { readDb, writeDb } from './db';
 import type { BrandingSettings, CleanupSettings, MonitoredPaths, User } from '@/types';
+import fs from 'fs/promises';
+
+export async function testPath(path: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        await fs.access(path);
+        return { success: true };
+    } catch (error: any) {
+        if (error.code === 'ENOENT') {
+            return { success: false, error: `Path does not exist: ${path}` };
+        }
+        if (error.code === 'EACCES') {
+            return { success: false, error: `Permission denied: ${path}` };
+        }
+        return { success: false, error: `An unexpected error occurred: ${error.message}` };
+    }
+}
 
 export async function updateBrandingSettings(settings: BrandingSettings) {
   const db = await readDb();

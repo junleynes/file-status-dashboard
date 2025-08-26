@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MonitoredPath, MonitoredPaths, User, CleanupSettings } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText } from "lucide-react";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -30,7 +30,8 @@ import {
     updateMonitoredPaths,
     addMonitoredExtension,
     removeMonitoredExtension,
-    updateCleanupSettings
+    updateCleanupSettings,
+    testPath
 } from "@/lib/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -125,6 +126,22 @@ export default function SettingsPage() {
         setEditingPathId(null);
     });
   };
+
+  const handleTestPath = (id: 'import' | 'failed') => {
+    startTransition(async () => {
+        const pathData = paths[id];
+        if (!pathData.path) {
+            toast({ title: "Error", description: "Path cannot be empty.", variant: "destructive" });
+            return;
+        }
+        const result = await testPath(pathData.path);
+        if (result.success) {
+            toast({ title: "Success", description: `Path "${pathData.path}" is accessible.` });
+        } else {
+            toast({ title: "Error", description: result.error, variant: "destructive" });
+        }
+    });
+  }
 
   const handlePathChange = (
     type: 'import' | 'failed', 
@@ -301,16 +318,19 @@ export default function SettingsPage() {
 
     return (
         <div className="rounded-lg border p-4 space-y-4 relative bg-muted/20">
-            <div className="absolute top-2 right-2">
+            <div className="absolute top-2 right-2 flex gap-1">
                  {isEditing ? (
-                     <Button variant="ghost" size="icon" onClick={() => handleSavePath(type)} disabled={isPending}>
-                         <Check className="h-5 w-5 text-green-600" />
-                     </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleSavePath(type)} disabled={isPending}>
+                        <Check className="h-5 w-5 text-green-600" />
+                    </Button>
                 ) : (
                     <Button variant="ghost" size="icon" onClick={() => setEditingPathId(p.id)} disabled={isPending}>
                         <Edit className="h-4 w-4" />
                     </Button>
                 )}
+                 <Button variant="ghost" size="icon" onClick={() => handleTestPath(type)} disabled={isPending} title="Test Path">
+                    <Network className="h-4 w-4" />
+                </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
