@@ -1,7 +1,7 @@
 
 import chokidar from 'chokidar';
 import { readDb, writeDb } from './db';
-import { addFileStatus, updateFileStatus } from './actions';
+import { addFileStatus } from './actions';
 import path from 'path';
 import fs from 'fs/promises';
 import type { FileStatus } from '@/types';
@@ -16,7 +16,7 @@ async function runCleanup() {
     const now = new Date().getTime();
     let changed = false;
 
-    const allPaths = [monitoredPaths.import.path, monitoredPaths.failed.path].filter(Boolean);
+    const allPaths = Object.values(monitoredPaths).map(p => ({name: p.name, path: p.path})).filter(p => p.path);
 
     // 1. Handle Timeouts
     if (cleanupSettings.timeout.enabled) {
@@ -32,6 +32,7 @@ async function runCleanup() {
                 if (now - lastUpdated > timeoutMs) {
                     console.log(`File ${file.name} has timed out. Updating status.`);
                     file.status = 'timed-out';
+                    file.lastUpdated = new Date().toISOString();
                     changed = true;
                 }
             }
@@ -39,7 +40,7 @@ async function runCleanup() {
     }
 
     // Prepare for file deletion and status cleanup
-    let statusesToKeep: FileStatus[] = [];
+    let statusesToKeep: FileStatus[] = [...fileStatuses];
     let filesToDelete: {filePath: string, statusId: string}[] = [];
 
     const statusCleanupEnabled = cleanupSettings.status.enabled;
@@ -49,39 +50,38 @@ async function runCleanup() {
         ? statusCleanupValue * 60 * 60 * 1000
         : statusCleanupValue * 24 * 60 * 60 * 1000;
 
+    const fileCleanupEnabled = cleanupSettings.files.enabled;
+    const fileCleanupValue = parseInt(cleanupSettings.files.value, 10);
+    const fileCleanupUnit = cleanupSettings.files.unit;
+    const fileCleanupMs = fileCleanupUnit === 'hours'
+        ? fileCleanupValue * 60 * 60 * 1000
+        : fileCleanupValue * 24 * 60 * 60 * 1000;
+
+
     for (const file of fileStatuses) {
         const lastUpdated = new Date(file.lastUpdated).getTime();
-        let shouldKeep = true;
-
+        let shouldRemoveStatus = false;
+        
         // 2. Check for status cleanup
         if (statusCleanupEnabled && (now - lastUpdated > statusCleanupMs)) {
-            console.log(`Removing old status for file: ${file.name}`);
-            shouldKeep = false;
-            changed = true;
+            console.log(`Scheduling removal of old status for file: ${file.name}`);
+            shouldRemoveStatus = true;
         }
         
         // 3. Check for file cleanup
-        if (cleanupSettings.files.enabled) {
-            const fileCleanupValue = parseInt(cleanupSettings.files.value, 10);
-            const fileCleanupUnit = cleanupSettings.files.unit;
-            const fileCleanupMs = fileCleanupUnit === 'hours'
-                ? fileCleanupValue * 60 * 60 * 1000
-                : fileCleanupValue * 24 * 60 * 60 * 1000;
-            
-            if (now - lastUpdated > fileCleanupMs) {
-                // Find full path and add to deletion queue
-                const folderPath = allPaths.find(p => p.includes(file.source)) ?? file.source;
-                const fullPath = path.join(folderPath, file.name);
+        if (fileCleanupEnabled && (now - lastUpdated > fileCleanupMs)) {
+            const folderInfo = allPaths.find(p => p.name === file.source);
+            if (folderInfo) {
+                const fullPath = path.join(folderInfo.path, file.name);
                 filesToDelete.push({filePath: fullPath, statusId: file.id});
-                
-                // If we're deleting the file, we should also remove its status
-                shouldKeep = false;
-                changed = true;
+                console.log(`Scheduling deletion of old file: ${fullPath}`);
+                shouldRemoveStatus = true; // Also remove status if file is being deleted
             }
         }
         
-        if (shouldKeep) {
-            statusesToKeep.push(file);
+        if (shouldRemoveStatus) {
+             statusesToKeep = statusesToKeep.filter(s => s.id !== file.id);
+             changed = true;
         }
     }
 
@@ -92,22 +92,24 @@ async function runCleanup() {
             try {
                 await fs.unlink(filePath);
                 console.log(`Successfully deleted file: ${filePath}`);
-                // Ensure status is removed even if it wasn't caught by status cleanup rule
-                statusesToKeep = statusesToKeep.filter(s => s.id !== statusId);
             } catch (error: any) {
                 if (error.code === 'ENOENT') {
                      console.warn(`File not found for deletion, likely already deleted: ${filePath}`);
-                     statusesToKeep = statusesToKeep.filter(s => s.id !== statusId);
                 } else {
                     console.error(`Failed to delete file ${filePath}:`, error);
                 }
+            }
+            // Ensure status is removed even if other checks didn't catch it
+            if (statusesToKeep.some(s => s.id === statusId)) {
+                statusesToKeep = statusesToKeep.filter(s => s.id !== statusId);
+                changed = true;
             }
         }
     }
 
     // If any change occurred, write to DB
     if (changed) {
-        console.log('DB changed, writing updates.');
+        console.log('DB changed due to cleanup, writing updates.');
         db.fileStatuses = statusesToKeep;
         await writeDb(db);
     } else {
@@ -118,60 +120,65 @@ async function runCleanup() {
 
 async function initializeWatcher() {
   console.log('Initializing file watcher...');
-  const db = await readDb();
-  const importPath = db.monitoredPaths.import.path;
-  const extensions = db.monitoredExtensions.map(ext => `.${ext}`);
+  try {
+    const db = await readDb();
+    const importPath = db.monitoredPaths.import.path;
+    const extensions = db.monitoredExtensions.map(ext => `.${ext.toLowerCase()}`);
 
-  if (!importPath) {
-    console.warn('Import path is not configured. File watcher not started.');
-    return;
-  }
+    if (!importPath) {
+      console.warn('Import path is not configured. File watcher not started.');
+      return;
+    }
 
-  console.log(`Watching path: ${importPath}`);
-  console.log(`For extensions: ${extensions.join(', ')}`);
+    console.log(`Watching path: ${importPath}`);
+    if (extensions.length > 0) {
+        console.log(`For extensions: ${extensions.join(', ')}`);
+    } else {
+        console.log('For all file extensions.');
+    }
 
-  // Close previous watcher if exists
-  if (watcher) {
-    console.log('Closing previous watcher instance.');
-    await watcher.close();
-  }
-  
-  // Initialize watcher.
-  watcher = chokidar.watch(importPath, {
-    ignored: /(^|[\/\\])\../, // ignore dotfiles
-    persistent: true,
-    ignoreInitial: true, // Don't trigger 'add' events on existing files
-    depth: 0, // only watch top-level files in the directory
-  });
 
-  // Add event listeners.
-  watcher
-    .on('add', async (filePath) => {
-        const fileExt = path.extname(filePath).toLowerCase();
-        
-        // If extensions are specified, only process files with matching extensions.
-        // If no extensions are specified, process all files.
-        if (extensions.length > 0 && !extensions.includes(fileExt)) {
-            console.log(`Skipping file with non-monitored extension: ${filePath}`);
-            return;
-        }
-
-        console.log(`File ${filePath} has been added`);
-        await addFileStatus(filePath);
-    })
-    .on('error', (error) => console.error(`Watcher error: ${error}`))
-    .on('ready', () => console.log('Initial scan complete. Ready for changes'));
+    // Close previous watcher if exists
+    if (watcher) {
+      console.log('Closing previous watcher instance.');
+      await watcher.close();
+    }
     
-    // Set up periodic cleanup
-    setInterval(runCleanup, CLEANUP_INTERVAL);
-    console.log(`Cleanup tasks scheduled to run every ${CLEANUP_INTERVAL / (1000 * 60)} minutes.`);
-    runCleanup(); // Run once on startup
+    // Initialize watcher.
+    watcher = chokidar.watch(importPath, {
+      ignored: /(^|[\/\\])\../, // ignore dotfiles
+      persistent: true,
+      ignoreInitial: true, // Don't trigger 'add' events on existing files
+      depth: 0, // only watch top-level files in the directory
+    });
+
+    // Add event listeners.
+    watcher
+      .on('add', async (filePath) => {
+          const fileExt = path.extname(filePath).toLowerCase();
+          
+          if (extensions.length > 0 && !extensions.includes(fileExt)) {
+              console.log(`Skipping file with non-monitored extension: ${filePath}`);
+              return;
+          }
+
+          console.log(`File ${filePath} has been added`);
+          await addFileStatus(filePath);
+      })
+      .on('error', (error) => console.error(`Watcher error: ${error}`))
+      .on('ready', () => console.log('Initial scan complete. Ready for changes'));
+      
+      // Set up periodic cleanup
+      setInterval(runCleanup, CLEANUP_INTERVAL);
+      console.log(`Cleanup tasks scheduled to run every ${CLEANUP_INTERVAL / (1000 * 60)} minutes.`);
+      runCleanup(); // Run once on startup
+
+  } catch (error) {
+      console.error("Failed to initialize watcher:", error);
+  }
 }
 
 // Start the watcher
 initializeWatcher().catch(console.error);
-
-// We can add logic here to re-initialize the watcher if settings change,
-// but for now this simple setup will start it on server boot.
 
 console.log('Watcher script loaded.');

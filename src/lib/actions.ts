@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { readDb, writeDb } from './db';
 import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatus } from '@/types';
 import fs from 'fs/promises';
+import path from 'path';
 
 export async function testPath(path: string): Promise<{ success: boolean; error?: string }> {
     try {
@@ -107,10 +108,12 @@ export async function clearAllFileStatuses() {
 export async function addFileStatus(filePath: string) {
     const db = await readDb();
     const fileName = path.basename(filePath);
+    const sourceDir = path.dirname(filePath);
 
-    // Prevent duplicates
-    if (db.fileStatuses.some(f => f.name === fileName)) {
-        console.log(`File ${fileName} already tracked.`)
+    // Prevent duplicates from the same source directory
+    const sourceName = Object.values(db.monitoredPaths).find(p => p.path === sourceDir)?.name || sourceDir;
+    if (db.fileStatuses.some(f => f.name === fileName && f.source === sourceName)) {
+        console.log(`File ${fileName} from ${sourceName} already tracked.`)
         return;
     }
 
@@ -118,7 +121,7 @@ export async function addFileStatus(filePath: string) {
         id: `file-${Date.now()}`,
         name: fileName,
         status: 'processing' as const,
-        source: db.monitoredPaths.import.name,
+        source: sourceName,
         lastUpdated: new Date().toISOString(),
     };
 
@@ -142,6 +145,3 @@ export async function updateFileStatus(fileId: string, status: FileStatus['statu
         console.log(`Could not find file with id ${fileId} to update.`);
     }
 }
-
-// Node.js built-in module
-import path from 'path';
