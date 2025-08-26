@@ -3,10 +3,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { readDb, writeDb } from './db';
-import type { BrandingSettings, CleanupSettings, MonitoredPath, MonitoredPaths, User } from '@/types';
+import type { BrandingSettings, CleanupSettings, MonitoredPaths, User } from '@/types';
 import fs from 'fs/promises';
 
-async function testLocalPath(path: string): Promise<{ success: boolean; error?: string }> {
+export async function testPath(path: string): Promise<{ success: boolean; error?: string }> {
     try {
         await fs.access(path);
         return { success: true };
@@ -18,27 +18,6 @@ async function testLocalPath(path: string): Promise<{ success: boolean; error?: 
             return { success: false, error: `Permission denied: ${path}` };
         }
         return { success: false, error: `An unexpected error occurred: ${error.message}` };
-    }
-}
-
-async function testNetworkPath(pathData: MonitoredPath): Promise<{ success: boolean; error?: string }> {
-    // This function currently cannot mount network shares.
-    // It can only test paths that are already mounted on the server's OS.
-    // We will test the path as if it were a local path.
-    const message = `Network path testing via SMB is not implemented. The application can only access network shares that are already mounted on the server's operating system. Testing path as a local directory.`;
-    const result = await testLocalPath(pathData.path);
-    if (!result.success) {
-        return { success: false, error: `${message}\n\nError: ${result.error}` };
-    }
-    return { success: true, error: message }; // Returning success true, but with an informational "error" message
-}
-
-
-export async function testPath(pathData: MonitoredPath): Promise<{ success: boolean; error?: string }> {
-    if (pathData.type === 'local') {
-        return testLocalPath(pathData.path);
-    } else {
-        return testNetworkPath(pathData);
     }
 }
 

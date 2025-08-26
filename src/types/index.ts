@@ -19,10 +19,7 @@ export type FileStatus = {
 export type MonitoredPath = {
   id: string;
   name: string;
-  type: 'local' | 'network';
   path: string;
-  username: string;
-  password: string;
 }
 
 export type MonitoredPaths = {

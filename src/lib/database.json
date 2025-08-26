@@ -1,3 +1,4 @@
+
 {
   "users": [
     {
@@ -26,18 +27,12 @@
     "import": {
       "id": "import-path",
       "name": "Import",
-      "type": "local",
-      "path": "/home/user/transit/import",
-      "username": "",
-      "password": ""
+      "path": "/home/user/transit/import"
     },
     "failed": {
       "id": "failed-path",
       "name": "Failed",
-      "type": "local",
-      "path": "/home/user/transit/failed",
-      "username": "",
-      "password": ""
+      "path": "/home/user/transit/failed"
     }
   },
   "monitoredExtensions": [

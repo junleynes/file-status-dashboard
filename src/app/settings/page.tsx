@@ -39,19 +39,13 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 const defaultImportPath: MonitoredPath = {
   id: 'import-path',
   name: 'Import',
-  type: 'local',
   path: '',
-  username: '',
-  password: ''
 };
 
 const defaultFailedPath: MonitoredPath = {
   id: 'failed-path',
   name: 'Failed',
-  type: 'local',
   path: '',
-  username: '',
-  password: ''
 };
 
 export default function SettingsPage() {
@@ -117,7 +111,7 @@ export default function SettingsPage() {
   const handleSavePath = (id: 'import' | 'failed') => {
     startTransition(async () => {
         const pathData = paths[id];
-        if (!pathData.name || !pathData.path || (pathData.type === 'network' && (!pathData.username || !pathData.password))) {
+        if (!pathData.name || !pathData.path) {
              toast({ title: "Error", description: `Please fill in all required fields for the ${pathData.name} Location.`, variant: "destructive" });
              return;
         }
@@ -135,12 +129,11 @@ export default function SettingsPage() {
             toast({ title: "Error", description: "Path cannot be empty.", variant: "destructive" });
             return;
         }
-        const result = await testPath(pathData);
+        const result = await testPath(pathData.path);
         if (result.success) {
             toast({ 
               title: "Success", 
-              description: result.error ? `Path is accessible. Note: ${result.error}` : `Path "${pathData.path}" is accessible.`,
-              duration: result.error ? 10000 : 5000,
+              description: `Path "${pathData.path}" is accessible.`,
             });
         } else {
             toast({ title: "Error", description: result.error, variant: "destructive", duration: 10000 });
@@ -344,42 +337,16 @@ export default function SettingsPage() {
                     <Input id={`name-${p.id}`} placeholder="e.g., Main Storage" value={p.name} onChange={e => onPathChange('name', e.target.value)} disabled={!isEditing || isPending} />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor={`type-${p.id}`}>Type</Label>
-                    <Select value={p.type} onValueChange={(v: 'local' | 'network') => onPathChange('type', v)} disabled={!isEditing || isPending}>
-                        <SelectTrigger id={`type-${p.id}`}>
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="local"><div className="flex items-center gap-2"><Folder className="h-4 w-4" /> Local</div></SelectItem>
-                            <SelectItem value="network"><div className="flex items-center gap-2"><Server className="h-4 w-4" /> Network (SMB)</div></SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <Label htmlFor={`path-${p.id}`}>Path</Label>
+                    <Input id={`path-${p.id}`} placeholder="e.g., /mnt/storage/import" value={p.path} onChange={e => onPathChange('path', e.target.value)} disabled={!isEditing || isPending} />
                 </div>
             </div>
-            <div className="space-y-2">
-                <Label htmlFor={`path-${p.id}`}>Path</Label>
-                <Input id={`path-${p.id}`} placeholder="e.g., /mnt/storage/import or \\\\server\\share" value={p.path} onChange={e => onPathChange('path', e.target.value)} disabled={!isEditing || isPending} />
-            </div>
-            {p.type === 'network' && (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor={`user-${p.id}`}>Username</Label>
-                        <Input id={`user-${p.id}`} placeholder="Required" value={p.username} onChange={e => onPathChange('username', e.target.value)} disabled={!isEditing || isPending} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor={`pass-${p.id}`}>Password</Label>
-                        <Input id={`pass-${p.id}`} type="password" placeholder="Required" value={p.password} onChange={e => onPathChange('password', e.target.value)} disabled={!isEditing || isPending} />
-                    </div>
-                </div>
-                <Alert>
+             <Alert>
                   <Info className="h-4 w-4" />
                   <AlertDescription>
-                    For network paths to work, the share must be mounted on the server's operating system. This application does not mount network shares itself.
+                    Provide the full local path to the folder. If it's a network share, it must be mounted on the server's operating system first.
                   </AlertDescription>
-                </Alert>
-              </>
-            )}
+            </Alert>
         </div>
     )
   }
