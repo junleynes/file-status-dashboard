@@ -22,7 +22,15 @@ async function testLocalPath(path: string): Promise<{ success: boolean; error?: 
 }
 
 async function testNetworkPath(pathData: MonitoredPath): Promise<{ success: boolean; error?: string }> {
-    return { success: false, error: 'Network path testing is not yet implemented.' };
+    // This function currently cannot mount network shares.
+    // It can only test paths that are already mounted on the server's OS.
+    // We will test the path as if it were a local path.
+    const message = `Network path testing via SMB is not implemented. The application can only access network shares that are already mounted on the server's operating system. Testing path as a local directory.`;
+    const result = await testLocalPath(pathData.path);
+    if (!result.success) {
+        return { success: false, error: `${message}\n\nError: ${result.error}` };
+    }
+    return { success: true, error: message }; // Returning success true, but with an informational "error" message
 }
 
 

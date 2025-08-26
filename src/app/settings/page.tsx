@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MonitoredPath, MonitoredPaths, User, CleanupSettings } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network } from "lucide-react";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -34,6 +34,7 @@ import {
     testPath
 } from "@/lib/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const defaultImportPath: MonitoredPath = {
   id: 'import-path',
@@ -136,9 +137,13 @@ export default function SettingsPage() {
         }
         const result = await testPath(pathData);
         if (result.success) {
-            toast({ title: "Success", description: `Path "${pathData.path}" is accessible.` });
+            toast({ 
+              title: "Success", 
+              description: result.error ? `Path is accessible. Note: ${result.error}` : `Path "${pathData.path}" is accessible.`,
+              duration: result.error ? 10000 : 5000,
+            });
         } else {
-            toast({ title: "Error", description: result.error, variant: "destructive" });
+            toast({ title: "Error", description: result.error, variant: "destructive", duration: 10000 });
         }
     });
   }
@@ -356,6 +361,7 @@ export default function SettingsPage() {
                 <Input id={`path-${p.id}`} placeholder="e.g., /mnt/storage/import or \\\\server\\share" value={p.path} onChange={e => onPathChange('path', e.target.value)} disabled={!isEditing || isPending} />
             </div>
             {p.type === 'network' && (
+              <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <Label htmlFor={`user-${p.id}`}>Username</Label>
@@ -366,6 +372,13 @@ export default function SettingsPage() {
                         <Input id={`pass-${p.id}`} type="password" placeholder="Required" value={p.password} onChange={e => onPathChange('password', e.target.value)} disabled={!isEditing || isPending} />
                     </div>
                 </div>
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    For network paths to work, the share must be mounted on the server's operating system. This application does not mount network shares itself.
+                  </AlertDescription>
+                </Alert>
+              </>
             )}
         </div>
     )
