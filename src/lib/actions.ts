@@ -104,8 +104,29 @@ export async function clearAllFileStatuses() {
     revalidatePath('/dashboard');
 }
 
-export async function simulateFileProcessing() {
-    // This function is now disabled to prevent creating fake files.
-    // In a real application, this is where you would implement logic
-    // to check the monitored folders for actual file changes.
+export async function addFileStatus(filePath: string) {
+    const db = await readDb();
+    const fileName = path.basename(filePath);
+
+    // Prevent duplicates
+    if (db.fileStatuses.some(f => f.name === fileName)) {
+        console.log(`File ${fileName} already tracked.`)
+        return;
+    }
+
+    const newFileStatus = {
+        id: `file-${Date.now()}`,
+        name: fileName,
+        status: 'processing' as const,
+        source: db.monitoredPaths.import.name,
+        lastUpdated: new Date().toISOString(),
+    };
+
+    db.fileStatuses.unshift(newFileStatus); // Add to the top of the list
+    await writeDb(db);
+    revalidatePath('/dashboard');
+    console.log(`Added new file to track: ${fileName}`);
 }
+
+// Node.js built-in module
+import path from 'path';
