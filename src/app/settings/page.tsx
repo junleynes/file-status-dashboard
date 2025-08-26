@@ -134,7 +134,7 @@ export default function SettingsPage() {
             toast({ title: "Error", description: "Path cannot be empty.", variant: "destructive" });
             return;
         }
-        const result = await testPath(pathData.path);
+        const result = await testPath(pathData);
         if (result.success) {
             toast({ title: "Success", description: `Path "${pathData.path}" is accessible.` });
         } else {

@@ -3,10 +3,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { readDb, writeDb } from './db';
-import type { BrandingSettings, CleanupSettings, MonitoredPaths, User } from '@/types';
+import type { BrandingSettings, CleanupSettings, MonitoredPath, MonitoredPaths, User } from '@/types';
 import fs from 'fs/promises';
 
-export async function testPath(path: string): Promise<{ success: boolean; error?: string }> {
+async function testLocalPath(path: string): Promise<{ success: boolean; error?: string }> {
     try {
         await fs.access(path);
         return { success: true };
@@ -18,6 +18,19 @@ export async function testPath(path: string): Promise<{ success: boolean; error?
             return { success: false, error: `Permission denied: ${path}` };
         }
         return { success: false, error: `An unexpected error occurred: ${error.message}` };
+    }
+}
+
+async function testNetworkPath(pathData: MonitoredPath): Promise<{ success: boolean; error?: string }> {
+    return { success: false, error: 'Network path testing is temporarily disabled.' };
+}
+
+
+export async function testPath(pathData: MonitoredPath): Promise<{ success: boolean; error?: string }> {
+    if (pathData.type === 'local') {
+        return testLocalPath(pathData.path);
+    } else {
+        return testNetworkPath(pathData);
     }
 }
 
