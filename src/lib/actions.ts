@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { readDb, writeDb } from './db';
-import type { BrandingSettings, CleanupSettings, MonitoredPaths, User } from '@/types';
+import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatus } from '@/types';
 import fs from 'fs/promises';
 
 export async function testPath(path: string): Promise<{ success: boolean; error?: string }> {
@@ -126,6 +126,21 @@ export async function addFileStatus(filePath: string) {
     await writeDb(db);
     revalidatePath('/dashboard');
     console.log(`Added new file to track: ${fileName}`);
+}
+
+export async function updateFileStatus(fileId: string, status: FileStatus['status']) {
+    const db = await readDb();
+    const fileIndex = db.fileStatuses.findIndex(f => f.id === fileId);
+
+    if (fileIndex > -1) {
+        db.fileStatuses[fileIndex].status = status;
+        db.fileStatuses[fileIndex].lastUpdated = new Date().toISOString();
+        await writeDb(db);
+        revalidatePath('/dashboard');
+        console.log(`Updated status for file ${db.fileStatuses[fileIndex].name} to ${status}`);
+    } else {
+        console.log(`Could not find file with id ${fileId} to update.`);
+    }
 }
 
 // Node.js built-in module

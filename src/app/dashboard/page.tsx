@@ -17,7 +17,6 @@ import { readDb } from "@/lib/db";
 export default function DashboardPage() {
   const { user } = useAuth();
   const [files, setFiles] = useState<FileStatus[]>([]);
-  const [cleanupSettings, setCleanupSettings] = useState<CleanupSettings | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<FileStatus['status'] | 'all'>('all');
   const [isPending, startTransition] = useTransition();
@@ -27,9 +26,13 @@ export default function DashboardPage() {
     const fetchFiles = async () => {
       const db = await readDb();
       setFiles(db.fileStatuses);
-      setCleanupSettings(db.cleanupSettings);
     };
     fetchFiles();
+
+    // Set up an interval to poll for changes
+    const intervalId = setInterval(fetchFiles, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const handleClearAll = () => {
@@ -43,42 +46,21 @@ export default function DashboardPage() {
     });
   };
 
-  const processedFiles = useMemo(() => {
-    if (!cleanupSettings?.timeout.enabled) return files;
-    
-    const now = new Date().getTime();
-    const timeoutValue = parseInt(cleanupSettings.timeout.value);
-    const timeoutUnit = cleanupSettings.timeout.unit;
-    const timeoutMs = timeoutUnit === 'hours' 
-        ? timeoutValue * 60 * 60 * 1000
-        : timeoutValue * 24 * 60 * 60 * 1000;
-
-    return files.map(file => {
-        if (file.status === 'processing') {
-            const lastUpdated = new Date(file.lastUpdated).getTime();
-            if (now - lastUpdated > timeoutMs) {
-                return { ...file, status: 'timed-out' };
-            }
-        }
-        return file;
-    });
-  }, [files, cleanupSettings]);
-
   const filteredFiles = useMemo(() => {
-    return processedFiles
+    return files
       .filter(file => statusFilter === 'all' || file.status === statusFilter)
       .filter(file => 
         file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         file.source.toLowerCase().includes(searchTerm.toLowerCase())
       );
-  }, [processedFiles, statusFilter, searchTerm]);
+  }, [files, statusFilter, searchTerm]);
 
   const statusCounts = useMemo(() => {
-    return processedFiles.reduce((acc, file) => {
+    return files.reduce((acc, file) => {
       acc[file.status] = (acc[file.status] || 0) + 1;
       return acc;
     }, {} as Record<FileStatus['status'], number>);
-  }, [processedFiles]);
+  }, [files]);
 
   return (
     <motion.div
@@ -176,5 +158,3 @@ export default function DashboardPage() {
     </motion.div>
   );
 }
-
-    
