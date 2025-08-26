@@ -22,7 +22,7 @@ async function testLocalPath(path: string): Promise<{ success: boolean; error?: 
 }
 
 async function testNetworkPath(pathData: MonitoredPath): Promise<{ success: boolean; error?: string }> {
-    return { success: false, error: 'Network path testing is temporarily disabled.' };
+    return { success: false, error: 'Network path testing is not yet implemented.' };
 }
 
 
