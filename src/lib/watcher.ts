@@ -10,7 +10,7 @@ let watcher: chokidar.FSWatcher | null = null;
 const CLEANUP_INTERVAL = 1000 * 60 * 60; // 1 hour
 
 async function runCleanup() {
-    console.log('Running cleanup tasks...');
+    console.log('[Watcher] Running cleanup tasks...');
     const db = await readDb();
     const { cleanupSettings, fileStatuses, monitoredPaths } = db;
     const now = new Date().getTime();
@@ -30,7 +30,7 @@ async function runCleanup() {
             if (file.status === 'processing') {
                 const lastUpdated = new Date(file.lastUpdated).getTime();
                 if (now - lastUpdated > timeoutMs) {
-                    console.log(`File ${file.name} has timed out. Updating status.`);
+                    console.log(`[Watcher] File ${file.name} has timed out. Updating status.`);
                     file.status = 'timed-out';
                     file.lastUpdated = new Date().toISOString();
                     changed = true;
@@ -64,17 +64,17 @@ async function runCleanup() {
         
         // 2. Check for status cleanup
         if (statusCleanupEnabled && (now - lastUpdated > statusCleanupMs)) {
-            console.log(`Scheduling removal of old status for file: ${file.name}`);
+            console.log(`[Watcher] Scheduling removal of old status for file: ${file.name}`);
             shouldRemoveStatus = true;
         }
         
         // 3. Check for file cleanup
         if (fileCleanupEnabled && (now - lastUpdated > fileCleanupMs)) {
-            const folderInfo = allPaths.find(p => p.name === file.source);
-            if (folderInfo) {
-                const fullPath = path.join(folderInfo.path, file.name);
+            const sourcePath = Object.values(monitoredPaths).find(p => p.name === file.source)?.path;
+            if (sourcePath) {
+                const fullPath = path.join(sourcePath, file.name);
                 filesToDelete.push({filePath: fullPath, statusId: file.id});
-                console.log(`Scheduling deletion of old file: ${fullPath}`);
+                console.log(`[Watcher] Scheduling deletion of old file: ${fullPath}`);
                 shouldRemoveStatus = true; // Also remove status if file is being deleted
             }
         }
@@ -87,16 +87,16 @@ async function runCleanup() {
 
     // Perform file deletions
     if (filesToDelete.length > 0) {
-        console.log(`Deleting ${filesToDelete.length} old files.`);
+        console.log(`[Watcher] Deleting ${filesToDelete.length} old files.`);
         for (const { filePath, statusId } of filesToDelete) {
             try {
                 await fs.unlink(filePath);
-                console.log(`Successfully deleted file: ${filePath}`);
+                console.log(`[Watcher] Successfully deleted file: ${filePath}`);
             } catch (error: any) {
                 if (error.code === 'ENOENT') {
-                     console.warn(`File not found for deletion, likely already deleted: ${filePath}`);
+                     console.warn(`[Watcher] File not found for deletion, likely already deleted: ${filePath}`);
                 } else {
-                    console.error(`Failed to delete file ${filePath}:`, error);
+                    console.error(`[Watcher] Failed to delete file ${filePath}:`, error);
                 }
             }
             // Ensure status is removed even if other checks didn't catch it
@@ -109,75 +109,79 @@ async function runCleanup() {
 
     // If any change occurred, write to DB
     if (changed) {
-        console.log('DB changed due to cleanup, writing updates.');
+        console.log('[Watcher] DB changed due to cleanup, writing updates.');
         db.fileStatuses = statusesToKeep;
         await writeDb(db);
     } else {
-        console.log('No cleanup changes were necessary.');
+        console.log('[Watcher] No cleanup changes were necessary.');
     }
 }
 
 
 async function initializeWatcher() {
-  console.log('Initializing file watcher...');
+  console.log('[Watcher] Initializing file watcher service...');
   try {
     const db = await readDb();
     const importPath = db.monitoredPaths.import.path;
     const extensions = db.monitoredExtensions.map(ext => `.${ext.toLowerCase()}`);
 
     if (!importPath) {
-      console.warn('Import path is not configured. File watcher not started.');
+      console.warn('[Watcher] Import path is not configured. File watcher will not start.');
       return;
     }
 
-    console.log(`Watching path: ${importPath}`);
-    if (extensions.length > 0) {
-        console.log(`For extensions: ${extensions.join(', ')}`);
-    } else {
-        console.log('For all file extensions.');
+     try {
+        await fs.access(importPath);
+        console.log(`[Watcher] Successfully accessed import path: ${importPath}`);
+    } catch (error) {
+        console.error(`[Watcher] ERROR: Could not access import path: ${importPath}. Please check if the path is correct and permissions are set.`, error);
+        return; // Stop initialization if path is not accessible
     }
 
+    if (extensions.length > 0) {
+        console.log(`[Watcher] Monitoring for extensions: ${extensions.join(', ')}`);
+    } else {
+        console.log('[Watcher] Monitoring for all file extensions.');
+    }
 
     // Close previous watcher if exists
     if (watcher) {
-      console.log('Closing previous watcher instance.');
+      console.log('[Watcher] Closing previous watcher instance.');
       await watcher.close();
     }
     
-    // Initialize watcher.
     watcher = chokidar.watch(importPath, {
-      ignored: /(^|[\/\\])\../, // ignore dotfiles
       persistent: true,
-      ignoreInitial: true, // Don't trigger 'add' events on existing files
+      ignoreInitial: true, // Don't fire 'add' for existing files
+      awaitWriteFinish: { // Wait for files to finish writing
+        stabilityThreshold: 2000,
+        pollInterval: 100
+      }
     });
 
-    // Add event listeners.
     watcher
       .on('add', async (filePath) => {
+          console.log(`[Watcher] Detected new file: ${filePath}`);
           const fileExt = path.extname(filePath).toLowerCase();
           
           if (extensions.length > 0 && !extensions.includes(fileExt)) {
-              console.log(`Skipping file with non-monitored extension: ${filePath}`);
+              console.log(`[Watcher] Skipping file with non-monitored extension: ${filePath}`);
               return;
           }
-
-          console.log(`File ${filePath} has been added`);
           await addFileStatus(filePath);
       })
-      .on('error', (error) => console.error(`Watcher error: ${error}`))
-      .on('ready', () => console.log('Initial scan complete. Ready for changes'));
+      .on('error', (error) => console.error(`[Watcher] Watcher error: ${error}`))
+      .on('ready', () => console.log(`[Watcher] Ready. Watching for new files in: ${importPath}`));
       
-      // Set up periodic cleanup
       setInterval(runCleanup, CLEANUP_INTERVAL);
-      console.log(`Cleanup tasks scheduled to run every ${CLEANUP_INTERVAL / (1000 * 60)} minutes.`);
-      runCleanup(); // Run once on startup
+      console.log(`[Watcher] Cleanup tasks scheduled to run every ${CLEANUP_INTERVAL / (1000 * 60)} minutes.`);
+      runCleanup();
 
   } catch (error) {
-      console.error("Failed to initialize watcher:", error);
+      console.error("[Watcher] Failed to initialize watcher:", error);
   }
 }
 
 // Start the watcher
+console.log('[Watcher] Starting service...');
 initializeWatcher().catch(console.error);
-
-console.log('Watcher script loaded.');
