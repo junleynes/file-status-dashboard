@@ -149,7 +149,6 @@ async function initializeWatcher() {
       ignored: /(^|[\/\\])\../, // ignore dotfiles
       persistent: true,
       ignoreInitial: true, // Don't trigger 'add' events on existing files
-      depth: 0, // only watch top-level files in the directory
     });
 
     // Add event listeners.
