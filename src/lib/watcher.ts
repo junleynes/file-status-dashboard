@@ -1,122 +1,11 @@
 
 import chokidar from 'chokidar';
-import { readDb, writeDb } from './db';
+import { readDb } from './db';
 import { addFileStatus } from './actions';
 import path from 'path';
 import fs from 'fs/promises';
-import type { FileStatus } from '@/types';
 
 let watcher: chokidar.FSWatcher | null = null;
-const CLEANUP_INTERVAL = 1000 * 60 * 60; // 1 hour
-
-async function runCleanup() {
-    console.log('[Watcher] Running cleanup tasks...');
-    const db = await readDb();
-    const { cleanupSettings, fileStatuses, monitoredPaths } = db;
-    const now = new Date().getTime();
-    let changed = false;
-
-    const allPaths = Object.values(monitoredPaths).map(p => ({name: p.name, path: p.path})).filter(p => p.path);
-
-    // 1. Handle Timeouts
-    if (cleanupSettings.timeout.enabled) {
-        const timeoutValue = parseInt(cleanupSettings.timeout.value, 10);
-        const timeoutUnit = cleanupSettings.timeout.unit;
-        const timeoutMs = timeoutUnit === 'hours' 
-            ? timeoutValue * 60 * 60 * 1000
-            : timeoutValue * 24 * 60 * 60 * 1000;
-
-        for (const file of fileStatuses) {
-            if (file.status === 'processing') {
-                const lastUpdated = new Date(file.lastUpdated).getTime();
-                if (now - lastUpdated > timeoutMs) {
-                    console.log(`[Watcher] File ${file.name} has timed out. Updating status.`);
-                    file.status = 'timed-out';
-                    file.lastUpdated = new Date().toISOString();
-                    changed = true;
-                }
-            }
-        }
-    }
-
-    // Prepare for file deletion and status cleanup
-    let statusesToKeep: FileStatus[] = [...fileStatuses];
-    let filesToDelete: {filePath: string, statusId: string}[] = [];
-
-    const statusCleanupEnabled = cleanupSettings.status.enabled;
-    const statusCleanupValue = parseInt(cleanupSettings.status.value, 10);
-    const statusCleanupUnit = cleanupSettings.status.unit;
-    const statusCleanupMs = statusCleanupUnit === 'hours'
-        ? statusCleanupValue * 60 * 60 * 1000
-        : statusCleanupValue * 24 * 60 * 60 * 1000;
-
-    const fileCleanupEnabled = cleanupSettings.files.enabled;
-    const fileCleanupValue = parseInt(cleanupSettings.files.value, 10);
-    const fileCleanupUnit = cleanupSettings.files.unit;
-    const fileCleanupMs = fileCleanupUnit === 'hours'
-        ? fileCleanupValue * 60 * 60 * 1000
-        : fileCleanupValue * 24 * 60 * 60 * 1000;
-
-
-    for (const file of fileStatuses) {
-        const lastUpdated = new Date(file.lastUpdated).getTime();
-        let shouldRemoveStatus = false;
-        
-        // 2. Check for status cleanup
-        if (statusCleanupEnabled && (now - lastUpdated > statusCleanupMs)) {
-            console.log(`[Watcher] Scheduling removal of old status for file: ${file.name}`);
-            shouldRemoveStatus = true;
-        }
-        
-        // 3. Check for file cleanup
-        if (fileCleanupEnabled && (now - lastUpdated > fileCleanupMs)) {
-            const sourcePath = Object.values(monitoredPaths).find(p => p.name === file.source)?.path;
-            if (sourcePath) {
-                const fullPath = path.join(sourcePath, file.name);
-                filesToDelete.push({filePath: fullPath, statusId: file.id});
-                console.log(`[Watcher] Scheduling deletion of old file: ${fullPath}`);
-                shouldRemoveStatus = true; // Also remove status if file is being deleted
-            }
-        }
-        
-        if (shouldRemoveStatus) {
-             statusesToKeep = statusesToKeep.filter(s => s.id !== file.id);
-             changed = true;
-        }
-    }
-
-    // Perform file deletions
-    if (filesToDelete.length > 0) {
-        console.log(`[Watcher] Deleting ${filesToDelete.length} old files.`);
-        for (const { filePath, statusId } of filesToDelete) {
-            try {
-                await fs.unlink(filePath);
-                console.log(`[Watcher] Successfully deleted file: ${filePath}`);
-            } catch (error: any) {
-                if (error.code === 'ENOENT') {
-                     console.warn(`[Watcher] File not found for deletion, likely already deleted: ${filePath}`);
-                } else {
-                    console.error(`[Watcher] Failed to delete file ${filePath}:`, error);
-                }
-            }
-            // Ensure status is removed even if other checks didn't catch it
-            if (statusesToKeep.some(s => s.id === statusId)) {
-                statusesToKeep = statusesToKeep.filter(s => s.id !== statusId);
-                changed = true;
-            }
-        }
-    }
-
-    // If any change occurred, write to DB
-    if (changed) {
-        console.log('[Watcher] DB changed due to cleanup, writing updates.');
-        db.fileStatuses = statusesToKeep;
-        await writeDb(db);
-    } else {
-        console.log('[Watcher] No cleanup changes were necessary.');
-    }
-}
-
 
 async function initializeWatcher() {
   console.log('[Watcher] Initializing file watcher service...');
@@ -172,10 +61,6 @@ async function initializeWatcher() {
       })
       .on('error', (error) => console.error(`[Watcher] Watcher error: ${error}`))
       .on('ready', () => console.log(`[Watcher] Ready. Watching for new files in: ${importPath}`));
-      
-      setInterval(runCleanup, CLEANUP_INTERVAL);
-      console.log(`[Watcher] Cleanup tasks scheduled to run every ${CLEANUP_INTERVAL / (1000 * 60)} minutes.`);
-      runCleanup();
 
   } catch (error) {
       console.error("[Watcher] Failed to initialize watcher:", error);
