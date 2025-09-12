@@ -1,4 +1,3 @@
-
 {
   "users": [
     {
@@ -27,12 +26,12 @@
     "import": {
       "id": "import-path",
       "name": "Import",
-      "path": "/home/user/transit/import"
+      "path": "/mnt/pmc_mams_publishing/WATCH"
     },
     "failed": {
       "id": "failed-path",
       "name": "Failed",
-      "path": "/home/user/transit/failed"
+      "path": "/mnt/pmc_mams_publishing/WATCH"
     }
   },
   "monitoredExtensions": [
