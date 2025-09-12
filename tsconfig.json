@@ -7,21 +7,18 @@
     "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,   // ✅ fixes fs/path/chokidar import issues
     "module": "esnext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",             // ✅ use "node", not "bundler" (causes your import errors)
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+    "baseUrl": "src",                       // ✅ makes @/* resolve from src/
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["*"]
     },
-    "types": ["node", "@types/chokidar"]
+    "types": ["node", "chokidar"]           // ✅ "node" already brings in core types, no need for @types/chokidar here
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
