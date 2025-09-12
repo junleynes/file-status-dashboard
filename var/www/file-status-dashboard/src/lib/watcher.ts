@@ -1,4 +1,3 @@
-
 import chokidar from "chokidar";
 import { readDb } from "./db";
 import {
