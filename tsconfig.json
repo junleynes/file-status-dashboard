@@ -11,14 +11,14 @@
     "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true, // ✅ fixes fs/path/chokidar import issues
+    "allowSyntheticDefaultImports": true, 
     "module": "esnext",
-    "moduleResolution": "node", // ✅ use "node", not "bundler" (causes your import errors)
+    "moduleResolution": "node", 
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "baseUrl": "src", // ✅ makes @/* resolve from src/
+    "baseUrl": "src", 
     "paths": {
       "@/*": [
         "*"
@@ -27,7 +27,7 @@
     "types": [
       "node",
       "chokidar"
-    ] // ✅ "node" already brings in core types, no need for @types/chokidar here
+    ] 
     ,
     "plugins": [
       {

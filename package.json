@@ -7,7 +7,7 @@
     "watch-files": "tsx src/lib/watcher.ts",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
-    "build": "next build && tsc --outDir dist src/lib/watcher.ts",
+    "build": "next build && tsc --project tsconfig.watcher.json",
     "start": "node dist/watcher.js & next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"

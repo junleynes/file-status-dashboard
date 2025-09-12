@@ -1,12 +1,12 @@
-import chokidar from "chokidar";
+import * as chokidar from "chokidar";
 import { readDb } from "./db";
 import {
   addFileStatus,
   updateFileStatus,
   updateFileRemarks,
 } from "./actions";
-import path from "path";
-import fs from "fs/promises";
+import * as path from "path";
+import * as fs from "fs/promises";
 
 const timers: Map<string, NodeJS.Timeout> = new Map();
 

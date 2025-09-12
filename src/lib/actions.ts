@@ -1,11 +1,10 @@
-
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { readDb, writeDb } from './db';
-import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatus } from '@/types';
-import fs from 'fs/promises';
-import path from 'path';
+import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatus, MonitoredPath } from '@/types';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 export async function testPath(path: string): Promise<{ success: boolean; error?: string }> {
     try {
@@ -111,7 +110,7 @@ export async function addFileStatus(filePath: string, status: FileStatus['status
     const sourceDir = path.dirname(filePath);
 
     // Prevent duplicates from the same source directory
-    const sourceName = Object.values(db.monitoredPaths).find(p => p.path === sourceDir)?.name || path.basename(sourceDir);
+    const sourceName = (Object.values(db.monitoredPaths) as MonitoredPath[]).find(p => p.path === sourceDir)?.name || path.basename(sourceDir);
     
     // Check if a record for this file already exists
     const existingFileIndex = db.fileStatuses.findIndex(f => f.name === fileName);

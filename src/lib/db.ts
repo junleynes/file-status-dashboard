@@ -1,7 +1,7 @@
 'use server';
 
-import fs from 'fs/promises';
-import path from 'path';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 import type { Database } from '@/types';
 
 const dbPath = path.resolve(process.cwd(), 'src/lib/database.json');
