@@ -6,16 +6,16 @@ import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatu
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
-export async function testPath(path: string): Promise<{ success: boolean; error?: string }> {
+export async function testPath(filePath: string): Promise<{ success: boolean; error?: string }> {
     try {
-        await fs.access(path);
+        await fs.access(filePath);
         return { success: true };
     } catch (error: any) {
         if (error.code === 'ENOENT') {
-            return { success: false, error: `Path does not exist: ${path}` };
+            return { success: false, error: `Path does not exist: ${filePath}` };
         }
         if (error.code === 'EACCES') {
-            return { success: false, error: `Permission denied: ${path}` };
+            return { success: false, error: `Permission denied: ${filePath}` };
         }
         return { success: false, error: `An unexpected error occurred: ${error.message}` };
     }
