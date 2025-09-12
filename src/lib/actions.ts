@@ -105,43 +105,71 @@ export async function clearAllFileStatuses() {
     revalidatePath('/dashboard');
 }
 
-export async function addFileStatus(filePath: string) {
+export async function addFileStatus(filePath: string, status: FileStatus['status']) {
     const db = await readDb();
     const fileName = path.basename(filePath);
     const sourceDir = path.dirname(filePath);
 
     // Prevent duplicates from the same source directory
-    const sourceName = Object.values(db.monitoredPaths).find(p => p.path === sourceDir)?.name || sourceDir;
-    if (db.fileStatuses.some(f => f.name === fileName && f.source === sourceName)) {
-        console.log(`File ${fileName} from ${sourceName} already tracked.`)
-        return;
+    const sourceName = Object.values(db.monitoredPaths).find(p => p.path === sourceDir)?.name || path.basename(sourceDir);
+    
+    // Check if a record for this file already exists
+    const existingFileIndex = db.fileStatuses.findIndex(f => f.name === fileName);
+    
+    if (existingFileIndex !== -1) {
+        // Update existing record
+        db.fileStatuses[existingFileIndex].status = status;
+        db.fileStatuses[existingFileIndex].source = sourceName;
+        db.fileStatuses[existingFileIndex].lastUpdated = new Date().toISOString();
+        console.log(`Updated existing file status: ${fileName} to ${status}`);
+    } else {
+        // Add new record
+        const newFileStatus: FileStatus = {
+            id: `file-${Date.now()}-${Math.random()}`,
+            name: fileName,
+            status: status,
+            source: sourceName,
+            lastUpdated: new Date().toISOString(),
+        };
+        db.fileStatuses.unshift(newFileStatus); // Add to the top of the list
+        console.log(`Added new file to track: ${fileName}`);
     }
 
-    const newFileStatus = {
-        id: `file-${Date.now()}`,
-        name: fileName,
-        status: 'processing' as const,
-        source: sourceName,
-        lastUpdated: new Date().toISOString(),
-    };
-
-    db.fileStatuses.unshift(newFileStatus); // Add to the top of the list
     await writeDb(db);
     revalidatePath('/dashboard');
-    console.log(`Added new file to track: ${fileName}`);
 }
 
-export async function updateFileStatus(fileId: string, status: FileStatus['status']) {
+
+export async function updateFileStatus(filePath: string, newStatus: FileStatus['status']) {
     const db = await readDb();
-    const fileIndex = db.fileStatuses.findIndex(f => f.id === fileId);
+    const fileName = path.basename(filePath);
+    const fileIndex = db.fileStatuses.findIndex(f => f.name === fileName);
 
     if (fileIndex > -1) {
-        db.fileStatuses[fileIndex].status = status;
+        db.fileStatuses[fileIndex].status = newStatus;
         db.fileStatuses[fileIndex].lastUpdated = new Date().toISOString();
         await writeDb(db);
         revalidatePath('/dashboard');
-        console.log(`Updated status for file ${db.fileStatuses[fileIndex].name} to ${status}`);
+        console.log(`Updated status for file ${fileName} to ${newStatus}`);
     } else {
-        console.log(`Could not find file with id ${fileId} to update.`);
+        // If file doesn't exist, create it. This can happen if a file is moved to 'failed' before being seen in 'import'
+        console.log(`Could not find file ${fileName} to update. Adding it instead.`);
+        await addFileStatus(filePath, newStatus);
+    }
+}
+
+export async function updateFileRemarks(filePath: string, remarks: string) {
+    const db = await readDb();
+    const fileName = path.basename(filePath);
+    const fileIndex = db.fileStatuses.findIndex(f => f.name === fileName);
+
+    if (fileIndex > -1) {
+        db.fileStatuses[fileIndex].remarks = remarks;
+        db.fileStatuses[fileIndex].lastUpdated = new Date().toISOString();
+        await writeDb(db);
+        revalidatePath('/dashboard');
+        console.log(`Updated remarks for file ${fileName}`);
+    } else {
+         console.log(`Could not find file ${fileName} to update remarks.`);
     }
 }

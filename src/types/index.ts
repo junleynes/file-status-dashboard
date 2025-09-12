@@ -14,6 +14,7 @@ export type FileStatus = {
   status: 'processing' | 'failed' | 'published' | 'timed-out';
   source: string;
   lastUpdated: string;
+  remarks?: string;
 };
 
 export type MonitoredPath = {
