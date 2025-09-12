@@ -1,0 +1,18 @@
+
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "outDir": "./dist",
+    "rootDir": "./src/lib",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": false,
+    "resolveJsonModule": true,
+    "types": ["node"]
+  },
+  "include": ["src/lib/watcher.ts", "src/lib/db.ts", "src/lib/actions.ts", "src/types/index.ts"],
+  "exclude": ["node_modules"]
+}
