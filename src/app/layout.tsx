@@ -7,13 +7,18 @@ import { AuthProvider } from '@/contexts/auth-context';
 import { BrandingProvider } from '@/contexts/branding-context';
 import { AppShell } from '@/components/app-shell';
 import { ThemeProvider } from '@/components/theme-provider';
+import { readDb } from '@/lib/db';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
-export const metadata: Metadata = {
-  title: 'FileStatus Tracker',
-  description: 'A custom application built with Firebase Studio.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const db = await readDb();
+  const brandName = db.branding?.brandName || 'FileStatus Tracker';
+  return {
+    title: brandName,
+    description: 'A custom application built with Firebase Studio.',
+  };
+}
 
 export default function RootLayout({
   children,
