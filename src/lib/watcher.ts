@@ -1,3 +1,4 @@
+
 import * as chokidar from "chokidar";
 import { readDb } from "./db";
 import {
@@ -18,13 +19,10 @@ async function validateFilename(filePath: string): Promise<string[]> {
 
   const validExts = db.monitoredExtensions.map(e => `.${e}`);
   
-  // No validation rules if no extensions are specified
   if (validExts.length > 0 && !validExts.includes(ext)) {
     errors.push(`Invalid extension: ${ext}`);
   }
   
-  // This is an example filename pattern rule. You can adjust it.
-  // It checks for BV_XXXXXX_...
   const filenamePattern = /^BV_[A-Z0-9]{6}_[A-Z0-9]+.*$/;
 
   if (!filenamePattern.test(filename.replace(ext, ""))) {
@@ -53,45 +51,53 @@ async function initializeWatcher() {
       return;
   }
 
-  const watcher = chokidar.watch([importPath, failedPath], {
+  // Watch only the parent import path and ignore the failed path subdirectory
+  const watcher = chokidar.watch(importPath, {
     persistent: true,
     ignoreInitial: true,
-    depth: 1, // only watch top-level files
+    depth: 1, 
     awaitWriteFinish: { stabilityThreshold: 3000, pollInterval: 200 },
+    ignored: (p: string) => p.startsWith(failedPath) && p !== failedPath,
   });
 
   const getFileKey = (filePath: string) => path.basename(filePath);
 
-  // --- New file detected ---
+  const failedWatcher = chokidar.watch(failedPath, {
+    persistent: true,
+    ignoreInitial: true,
+    depth: 1,
+    awaitWriteFinish: { stabilityThreshold: 3000, pollInterval: 200 },
+  });
+
+  // --- New file detected in IMPORT ---
   watcher.on("add", async (filePath) => {
     const fileKey = getFileKey(filePath);
+    console.log(`[Watcher] New file in import: ${filePath}`);
+    await addFileStatus(filePath, "processing");
 
-    if (filePath.startsWith(importPath)) {
-      console.log(`[Watcher] New file in import: ${filePath}`);
-      await addFileStatus(filePath, "processing");
-
-      if (timers.has(fileKey)) {
-          clearTimeout(timers.get(fileKey)!);
-      }
-
-      // start timeout timer
-      const t = setTimeout(async () => {
-        try {
-          await fs.access(filePath); // still exists
-          await updateFileStatus(filePath, "timed-out");
-          console.log(`[Watcher] Timed out: ${filePath}`);
-          timers.delete(fileKey);
-        } catch {
-          // file removed — handled elsewhere
-        }
-      }, timeoutMs);
-
-      timers.set(fileKey, t);
+    if (timers.has(fileKey)) {
+        clearTimeout(timers.get(fileKey)!);
     }
 
-    if (filePath.startsWith(failedPath)) {
+    // start timeout timer
+    const t = setTimeout(async () => {
+      try {
+        await fs.access(filePath); // still exists
+        await updateFileStatus(filePath, "timed-out");
+        console.log(`[Watcher] Timed out: ${filePath}`);
+        timers.delete(fileKey);
+      } catch {
+        // file removed — handled elsewhere
+      }
+    }, timeoutMs);
+
+    timers.set(fileKey, t);
+  });
+
+  // --- File added to FAILED folder ---
+  failedWatcher.on("add", async (filePath) => {
+      const fileKey = getFileKey(filePath);
       console.log(`[Watcher] File detected in failed: ${filePath}`);
-      // This is a move, so update existing status, don't add new
       await updateFileStatus(filePath, "failed");
 
       if (timers.has(fileKey)) {
@@ -99,48 +105,48 @@ async function initializeWatcher() {
         timers.delete(fileKey);
       }
 
-      // validate
       const remarks = await validateFilename(filePath);
       if (remarks.length > 0) {
         await updateFileRemarks(filePath, remarks.join("; "));
       }
-    }
   });
 
-  // --- Handle removals (moves) ---
+
+  // --- Handle removals from IMPORT (moves) ---
   watcher.on("unlink", async (filePath) => {
-    console.log(`[Watcher] File removed: ${filePath}`);
+    console.log(`[Watcher] File removed from import: ${filePath}`);
     const fileKey = getFileKey(filePath);
 
-    // If a file is removed from the import folder, it's either moved to Failed or Published
-    if (filePath.startsWith(importPath)) {
-      // We don't clear the timer here. If it appears in 'failed', the 'add' event will clear it.
-      // If it doesn't appear in 'failed', it's published, so we clear it then.
+    // This logic handles a file being "published". A move to "failed" is handled by the failedWatcher.
+    // We wait a moment to see if the file status has been changed to 'failed'. If not, we assume it was published.
+    setTimeout(async () => {
+      const currentDb = await readDb();
+      const file = currentDb.fileStatuses.find(f => f.name === fileKey);
 
-      // small delay to allow chokidar to emit the "add" event in the failed folder if it was a move.
-      setTimeout(async () => {
-        const db = await readDb();
-        const file = db.fileStatuses.find(f => f.name === fileKey);
-
-        // If after the delay, the status is still 'processing', it means it wasn't moved to 'failed'.
-        // Therefore, it must have been published.
-        if (file && file.status === 'processing') {
-            console.log(`[Watcher] File published: ${fileKey}`);
-            await updateFileStatus(filePath, "published");
-            if (timers.has(fileKey)) {
-                clearTimeout(timers.get(fileKey)!);
-                timers.delete(fileKey);
-            }
-        }
-      }, 1000);
-    }
+      if (file && file.status === 'processing') {
+          console.log(`[Watcher] File published: ${fileKey}`);
+          await updateFileStatus(filePath, "published");
+          if (timers.has(fileKey)) {
+              clearTimeout(timers.get(fileKey)!);
+              timers.delete(fileKey);
+          }
+      }
+    }, 1500); // Increased delay slightly for stability
   });
 
   watcher
-    .on("error", (err) => console.error("[Watcher] Error:", err))
+    .on("error", (err) => console.error("[Watcher] Import Watcher Error:", err))
     .on("ready", () =>
       console.log(
-        `[Watcher] Ready. Watching import: ${importPath}, and failed: ${failedPath}`
+        `[Watcher] Import watcher ready. Watching: ${importPath}, Ignoring: ${failedPath}`
+      )
+    );
+  
+  failedWatcher
+    .on("error", (err) => console.error("[Watcher] Failed Watcher Error:", err))
+    .on("ready", () =>
+      console.log(
+        `[Watcher] Failed watcher ready. Watching: ${failedPath}`
       )
     );
 }
