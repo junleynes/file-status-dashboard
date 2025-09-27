@@ -1,4 +1,3 @@
-
 {
   "compilerOptions": {
     "target": "es2017",
@@ -7,7 +6,7 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "outDir": "./dist",
-    "rootDir": "./src/lib",
+    "rootDir": "./src",
     "strict": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
