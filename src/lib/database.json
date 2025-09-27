@@ -31,7 +31,7 @@
     "failed": {
       "id": "failed-path",
       "name": "Failed",
-      "path": "/mnt/pmc_mams_publishing/FAILED"
+      "path": "/mnt/pmc_mams_publishing/WATCH/rejected"
     }
   },
   "monitoredExtensions": [
