@@ -1,8 +1,9 @@
+
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { readDb, writeDb } from './db';
-import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatus, MonitoredPath } from '@/types';
+import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatus, MonitoredPath } from '../types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 

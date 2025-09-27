@@ -1,0 +1,25 @@
+
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "outDir": "./dist",
+    "rootDir": "./src/lib",
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": ["node"]
+  },
+  "include": [
+    "src/lib/watcher.ts",
+    "src/lib/db.ts",
+    "src/lib/actions.ts",
+    "src/types/index.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
