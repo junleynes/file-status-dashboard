@@ -10,6 +10,7 @@ import {
 } from "./actions";
 import * as path from "path";
 import * as fs from "fs/promises";
+import type { Database } from "@/types";
 
 // --- State and Configuration ---
 
@@ -197,7 +198,7 @@ async function validateFilename(filePath: string): Promise<string[]> {
   return errors;
 }
 
-function getTimeoutMs(db: any): number {
+function getTimeoutMs(db: Database): number {
     if (db.cleanupSettings.timeout.enabled) {
         const value = parseInt(db.cleanupSettings.timeout.value, 10);
         const unit = db.cleanupSettings.timeout.unit;
