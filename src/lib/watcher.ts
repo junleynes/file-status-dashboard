@@ -60,14 +60,21 @@ async function processQueue() {
   process.nextTick(processQueue);
 }
 
-function enqueueEvent(eventType: 'add' | 'unlink', filePath: string) {
-    // Prevent duplicate events
-    if (!eventQueue.some(e => e.filePath === filePath && e.eventType === eventType)) {
-        console.log(`[Queue] Enqueueing event: ${eventType} for ${filePath}`);
-        eventQueue.push({ eventType, filePath });
-        process.nextTick(processQueue);
+function enqueueEvent(eventType: 'add' | 'unlink', filePath: string, delay: number = 0) {
+    const execute = () => {
+        if (!eventQueue.some(e => e.filePath === filePath && e.eventType === eventType)) {
+            console.log(`[Queue] Enqueueing event: ${eventType} for ${filePath}`);
+            eventQueue.push({ eventType, filePath });
+            process.nextTick(processQueue);
+        } else {
+            console.log(`[Queue] Duplicate event for ${filePath} ignored.`);
+        }
+    };
+
+    if (delay > 0) {
+        setTimeout(execute, delay);
     } else {
-        console.log(`[Queue] Duplicate event ignored: ${eventType} for ${filePath}`);
+        execute();
     }
 }
 
@@ -108,7 +115,7 @@ async function handleFailedAdd(filePath: string) {
   if (timers.has(fileKey)) {
     clearTimeout(timers.get(fileKey)!);
     timers.delete(fileKey);
-    console.log(`[Handler] Cleared timeout for ${fileKey}.`);
+    console.log(`[Handler] Cleared timeout for ${fileKey} as it failed.`);
   }
 
   await updateFileStatus(filePath, "failed");
@@ -123,24 +130,21 @@ async function handleImportUnlink(filePath: string) {
   console.log(`[Handler] File removed from import: ${filePath}`);
   const fileKey = path.basename(filePath);
 
-  // We need to check if the file was moved to 'failed' or if it was 'published'
-  // We'll give it a moment for the 'add' event on the failed folder to be processed first by the queue
-  setTimeout(async () => {
-    const currentDb = await readDb();
-    const file = currentDb.fileStatuses.find(f => f.name === fileKey);
+  const currentDb = await readDb();
+  const file = currentDb.fileStatuses.find(f => f.name === fileKey);
 
-    // If after the delay, the status is still 'processing', it means it wasn't moved to 'failed'
-    if (file && file.status === 'processing') {
-      console.log(`[Handler] File determined to be published: ${fileKey}`);
-      await updateFileStatus(filePath, "published");
-      if (timers.has(fileKey)) {
-        clearTimeout(timers.get(fileKey)!);
-        timers.delete(fileKey);
-      }
-    } else {
-        console.log(`[Handler] Unlink for ${fileKey} ignored, status is now '${file?.status}'.`);
+  // This logic runs *after* the 'add' to failed (if it happened) because of the enqueue delay.
+  // So, if status is still 'processing', we know it wasn't a 'failed' move.
+  if (file && file.status === 'processing') {
+    console.log(`[Handler] File determined to be published: ${fileKey}`);
+    await updateFileStatus(filePath, "published");
+    if (timers.has(fileKey)) {
+      clearTimeout(timers.get(fileKey)!);
+      timers.delete(fileKey);
     }
-  }, 1500); // 1.5 second delay to allow other events to be processed
+  } else {
+      console.log(`[Handler] Unlink for ${fileKey} ignored, status is already '${file?.status}'.`);
+  }
 }
 
 
@@ -201,7 +205,7 @@ async function initializeWatcher() {
   const watcherOptions = {
     persistent: true,
     ignoreInitial: true,
-    awaitWriteFinish: { stabilityThreshold: 3000, pollInterval: 100 },
+    awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 100 },
     usePolling: true,
     interval: 1000,
   };
@@ -213,7 +217,7 @@ async function initializeWatcher() {
   
   mainWatcher
     .on("add", (filePath) => enqueueEvent('add', filePath))
-    .on("unlink", (filePath) => enqueueEvent('unlink', filePath))
+    .on("unlink", (filePath) => enqueueEvent('unlink', filePath, 1500)) // Delay unlink to ensure 'add' to failed is processed first
     .on("error", (err) => console.error("[Watcher] Main Watcher Error:", err))
     .on("ready", () => console.log(`[Watcher] Import Watcher ready. Watching: ${resolvedImportPath}`));
 
