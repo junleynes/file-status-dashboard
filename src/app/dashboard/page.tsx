@@ -90,8 +90,8 @@ export default function DashboardPage() {
       const result = await renameFile(fileToRename.name, newFileName.trim());
       if (result.success) {
         toast({
-          title: "File Renamed",
-          description: `"${fileToRename.name}" has been renamed to "${newFileName.trim()}".`,
+          title: "File Renamed & Retried",
+          description: `"${fileToRename.name}" has been renamed and moved to the import folder.`,
         });
       } else {
         toast({
@@ -223,9 +223,9 @@ export default function DashboardPage() {
        <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rename File</DialogTitle>
+            <DialogTitle>Rename & Retry File</DialogTitle>
             <DialogDescription>
-              Enter a new name for the file. The file will remain in the failed directory.
+              Enter a new name for the file. This will also move the file to the import folder to be processed again.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-4">
@@ -241,7 +241,7 @@ export default function DashboardPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsRenameDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleRename} disabled={isPending || !newFileName.trim()}>
-              {isPending ? 'Renaming...' : 'Rename'}
+              {isPending ? 'Processing...' : 'Rename & Retry'}
             </Button>
           </DialogFooter>
         </DialogContent>

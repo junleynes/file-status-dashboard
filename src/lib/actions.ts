@@ -61,21 +61,18 @@ export async function retryFile(fileName: string): Promise<{ success: boolean; e
 
 export async function renameFile(oldName: string, newName: string): Promise<{ success: boolean; error?: string }> {
     const db = await readDb();
-    const { failed: failedPath } = db.monitoredPaths;
+    const { import: importPath, failed: failedPath } = db.monitoredPaths;
 
     const oldPath = path.join(failedPath.path, oldName);
-    const newPath = path.join(failedPath.path, newName);
-
-     if (oldName === newName) {
-        return { success: true };
-    }
+    const newPath = path.join(importPath.path, newName);
 
     try {
         await fs.access(oldPath);
-        
+
+        // Check if a file with the new name already exists in the import path
         try {
-           await fs.access(newPath);
-           return { success: false, error: `A file named "${newName}" already exists.` };
+            await fs.access(newPath);
+            return { success: false, error: `A file named "${newName}" already exists in the import directory.` };
         } catch (e) {
             // New path does not exist, which is good.
         }
@@ -85,17 +82,21 @@ export async function renameFile(oldName: string, newName: string): Promise<{ su
         const fileIndex = db.fileStatuses.findIndex(f => f.name === oldName);
         if (fileIndex !== -1) {
             db.fileStatuses[fileIndex].name = newName;
+            db.fileStatuses[fileIndex].status = 'processing';
             db.fileStatuses[fileIndex].lastUpdated = new Date().toISOString();
-            db.fileStatuses[fileIndex].remarks = `Renamed from "${oldName}"`;
+            db.fileStatuses[fileIndex].remarks = `Renamed from "${oldName}" and retrying.`;
             await writeDb(db);
+        } else {
+             // If for some reason the file isn't in our DB, add it.
+            await addFileStatus(newPath, 'processing');
         }
         
         revalidatePath('/dashboard');
         return { success: true };
     } catch (error: any) {
-        console.error(`Error renaming file ${oldName}:`, error);
+        console.error(`Error renaming and moving file ${oldName}:`, error);
         if (error.code === 'EACCES') {
-             return { success: false, error: `Permission Denied: The application user does not have write permissions in the 'failed' directory. Please check folder permissions on the server.` };
+             return { success: false, error: `Permission Denied: The application user does not have write permissions to move files from the 'failed' to the 'import' directory. Please check folder permissions on the server.` };
         }
         if (error.code === 'ENOENT') {
             return { success: false, error: `File not found to rename: ${oldName}` };
