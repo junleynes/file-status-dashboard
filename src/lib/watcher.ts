@@ -168,18 +168,32 @@ async function validateFilename(filePath: string): Promise<string[]> {
   const filename = path.basename(filePath);
   const ext = path.extname(filename).toLowerCase();
 
+  // Mocking placeholder logic for demonstration
+  const mockPlaceholders = [
+    { baseCode: "ABC_123", hasMedia: false },
+    { baseCode: "XYZ_789", hasMedia: true },
+  ];
+  const baseCode = filename.split('.')[0];
+
+  const placeholder = mockPlaceholders.find(p => p.baseCode === baseCode);
+
+  if (!placeholder) {
+    errors.push("No placeholder found for this media file.");
+  } else if (placeholder.hasMedia) {
+    errors.push("Placeholder already contains media.");
+  }
+
   const validExts = db.monitoredExtensions.map(e => `.${e}`);
 
   if (validExts.length > 0 && !validExts.includes(ext)) {
     errors.push(`Invalid extension: ${ext}`);
   }
 
-  // Example pattern, adjust as needed
-  const filenamePattern = /.*/; // Accepting any filename for now
-
-  if (!filenamePattern.test(filename.replace(ext, ""))) {
-    errors.push(`Invalid filename format.`);
+  // Example of filename not matching base code (this is a simplified example)
+  if (baseCode.includes(" ") || !/^[A-Z0-9_]+$/.test(baseCode)) {
+      errors.push("Filename does not match the expected base code format.");
   }
+
   return errors;
 }
 
@@ -221,7 +235,7 @@ async function initializeWatcher() {
     awaitWriteFinish: { stabilityThreshold: 3000, pollInterval: 100 },
     usePolling: true,
     interval: 1000,
-    ignored: (p: string) => p.includes(resolvedFailedPath),
+    ignored: (p: string) => path.resolve(p) === resolvedFailedPath || p.includes(resolvedFailedPath + path.sep),
   };
   
   const mainWatcher = chokidar.watch(resolvedImportPath, watcherOptions);
@@ -256,5 +270,3 @@ async function initializeWatcher() {
         console.error("[Watcher] Failed to start watcher service:", error);
     }
 })();
-
-    

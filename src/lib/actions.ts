@@ -11,6 +11,11 @@ export async function checkWriteAccess(): Promise<{ canWrite: boolean; error?: s
   const db = await readDb();
   const { import: importPath, failed: failedPath } = db.monitoredPaths;
 
+  // If paths are not defined, we can't write.
+  if (!importPath.path || !failedPath.path) {
+    return { canWrite: false, error: 'Monitored paths are not configured.' };
+  }
+
   const testFilePathImport = path.join(importPath.path, `.write_test_${Date.now()}`);
   const testFilePathFailed = path.join(failedPath.path, `.write_test_${Date.now()}`);
 
@@ -239,6 +244,7 @@ export async function addFileStatus(filePath: string, status: FileStatus['status
         db.fileStatuses[existingFileIndex].status = status;
         db.fileStatuses[existingFileIndex].source = sourceName;
         db.fileStatuses[existingFileIndex].lastUpdated = new Date().toISOString();
+        db.fileStatuses[existingFileIndex].remarks = status === 'processing' ? '' : db.fileStatuses[existingFileIndex].remarks; // Clear remarks on reprocessing
         console.log(`Updated existing file status: ${fileName} to ${status}`);
     } else {
         // Add new record
@@ -295,7 +301,3 @@ export async function updateFileRemarks(filePath: string, remarks: string) {
          console.log(`Could not find file ${fileName} to update remarks.`);
     }
 }
-
-    
-
-    
