@@ -202,18 +202,16 @@ async function initializeWatcher() {
       return;
   }
 
-  const watcherOptions = {
+  const watcherOptions: chokidar.WatchOptions = {
     persistent: true,
     ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 100 },
     usePolling: true,
     interval: 1000,
+    ignored: (p: string) => p.includes(resolvedFailedPath),
   };
   
-  const mainWatcher = chokidar.watch(resolvedImportPath, {
-    ...watcherOptions,
-    depth: 0, 
-  });
+  const mainWatcher = chokidar.watch(resolvedImportPath, watcherOptions);
   
   mainWatcher
     .on("add", (filePath) => enqueueEvent('add', filePath))
@@ -222,7 +220,11 @@ async function initializeWatcher() {
     .on("ready", () => console.log(`[Watcher] Import Watcher ready. Watching: ${resolvedImportPath}`));
 
   const failedWatcher = chokidar.watch(resolvedFailedPath, {
-    ...watcherOptions,
+    persistent: true,
+    ignoreInitial: true,
+    awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 100 },
+    usePolling: true,
+    interval: 1000,
     depth: 0,
   });
 
