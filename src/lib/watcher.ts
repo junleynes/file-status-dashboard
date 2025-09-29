@@ -79,19 +79,21 @@ async function initializeWatcher() {
         clearTimeout(timers.get(fileKey)!);
     }
 
-    // start timeout timer
-    const t = setTimeout(async () => {
-      try {
-        await fs.access(filePath); // still exists
-        await updateFileStatus(filePath, "timed-out");
-        console.log(`[Watcher] Timed out: ${filePath}`);
-        timers.delete(fileKey);
-      } catch {
-        // file removed — handled elsewhere
-      }
-    }, timeoutMs);
+    if (timeoutMs > 0) {
+        // start timeout timer
+        const t = setTimeout(async () => {
+        try {
+            await fs.access(filePath); // still exists
+            await updateFileStatus(filePath, "timed-out");
+            console.log(`[Watcher] Timed out: ${filePath}`);
+            timers.delete(fileKey);
+        } catch {
+            // file removed — handled elsewhere
+        }
+        }, timeoutMs);
 
-    timers.set(fileKey, t);
+        timers.set(fileKey, t);
+    }
   });
 
   // --- File added to FAILED folder ---
