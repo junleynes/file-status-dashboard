@@ -10,7 +10,7 @@ import {
 } from "./actions";
 import * as path from "path";
 import * as fs from "fs/promises";
-import type { Database } from "@/types";
+import type { Database } from "../types";
 
 // --- State and Configuration ---
 
