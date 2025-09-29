@@ -49,6 +49,9 @@ export async function retryFile(fileName: string): Promise<{ success: boolean; e
         return { success: true };
     } catch (error: any) {
         console.error(`Error retrying file ${fileName}:`, error);
+        if (error.code === 'EACCES') {
+             return { success: false, error: `Permission Denied: The application user does not have write permissions to move files between the 'import' and 'failed' directories. Please check folder permissions on the server.` };
+        }
         if (error.code === 'ENOENT') {
             return { success: false, error: `File not found in failed directory: ${fileName}` };
         }
@@ -91,6 +94,9 @@ export async function renameFile(oldName: string, newName: string): Promise<{ su
         return { success: true };
     } catch (error: any) {
         console.error(`Error renaming file ${oldName}:`, error);
+        if (error.code === 'EACCES') {
+             return { success: false, error: `Permission Denied: The application user does not have write permissions in the 'failed' directory. Please check folder permissions on the server.` };
+        }
         if (error.code === 'ENOENT') {
             return { success: false, error: `File not found to rename: ${oldName}` };
         }
