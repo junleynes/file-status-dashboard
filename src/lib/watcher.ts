@@ -51,26 +51,29 @@ async function initializeWatcher() {
       return;
   }
 
-  // Watch only the parent import path and ignore the failed path subdirectory
-  const watcher = chokidar.watch(importPath, {
+  const watcherOptions = {
     persistent: true,
     ignoreInitial: true,
-    depth: 1, 
     awaitWriteFinish: { stabilityThreshold: 3000, pollInterval: 200 },
-    ignored: (p: string) => p.startsWith(failedPath) && p !== failedPath,
+    usePolling: true,
+    interval: 1000,
+  };
+
+  const importWatcher = chokidar.watch(importPath, {
+    ...watcherOptions,
+    depth: 0, 
+    ignored: (p: string) => path.resolve(p) === path.resolve(failedPath),
+  });
+
+  const failedWatcher = chokidar.watch(failedPath, {
+    ...watcherOptions,
+    depth: 0,
   });
 
   const getFileKey = (filePath: string) => path.basename(filePath);
 
-  const failedWatcher = chokidar.watch(failedPath, {
-    persistent: true,
-    ignoreInitial: true,
-    depth: 1,
-    awaitWriteFinish: { stabilityThreshold: 3000, pollInterval: 200 },
-  });
-
   // --- New file detected in IMPORT ---
-  watcher.on("add", async (filePath) => {
+  importWatcher.on("add", async (filePath) => {
     const fileKey = getFileKey(filePath);
     console.log(`[Watcher] New file in import: ${filePath}`);
     await addFileStatus(filePath, "processing");
@@ -80,20 +83,38 @@ async function initializeWatcher() {
     }
 
     if (timeoutMs > 0) {
-        // start timeout timer
         const t = setTimeout(async () => {
         try {
-            await fs.access(filePath); // still exists
+            await fs.access(filePath); 
             await updateFileStatus(filePath, "timed-out");
             console.log(`[Watcher] Timed out: ${filePath}`);
             timers.delete(fileKey);
         } catch {
-            // file removed — handled elsewhere
         }
         }, timeoutMs);
 
         timers.set(fileKey, t);
     }
+  });
+
+  // --- Handle removals from IMPORT (moves) ---
+  importWatcher.on("unlink", async (filePath) => {
+    console.log(`[Watcher] File removed from import: ${filePath}`);
+    const fileKey = getFileKey(filePath);
+
+    setTimeout(async () => {
+      const currentDb = await readDb();
+      const file = currentDb.fileStatuses.find(f => f.name === fileKey);
+
+      if (file && file.status === 'processing') {
+          console.log(`[Watcher] File published: ${fileKey}`);
+          await updateFileStatus(filePath, "published");
+          if (timers.has(fileKey)) {
+              clearTimeout(timers.get(fileKey)!);
+              timers.delete(fileKey);
+          }
+      }
+    }, 1500); 
   });
 
   // --- File added to FAILED folder ---
@@ -113,30 +134,7 @@ async function initializeWatcher() {
       }
   });
 
-
-  // --- Handle removals from IMPORT (moves) ---
-  watcher.on("unlink", async (filePath) => {
-    console.log(`[Watcher] File removed from import: ${filePath}`);
-    const fileKey = getFileKey(filePath);
-
-    // This logic handles a file being "published". A move to "failed" is handled by the failedWatcher.
-    // We wait a moment to see if the file status has been changed to 'failed'. If not, we assume it was published.
-    setTimeout(async () => {
-      const currentDb = await readDb();
-      const file = currentDb.fileStatuses.find(f => f.name === fileKey);
-
-      if (file && file.status === 'processing') {
-          console.log(`[Watcher] File published: ${fileKey}`);
-          await updateFileStatus(filePath, "published");
-          if (timers.has(fileKey)) {
-              clearTimeout(timers.get(fileKey)!);
-              timers.delete(fileKey);
-          }
-      }
-    }, 1500); // Increased delay slightly for stability
-  });
-
-  watcher
+  importWatcher
     .on("error", (err) => console.error("[Watcher] Import Watcher Error:", err))
     .on("ready", () =>
       console.log(
