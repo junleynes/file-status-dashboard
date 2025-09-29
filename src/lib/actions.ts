@@ -22,6 +22,82 @@ export async function testPath(path: string): Promise<{ success: boolean; error?
     }
 }
 
+export async function retryFile(fileName: string): Promise<{ success: boolean; error?: string }> {
+    const db = await readDb();
+    const { import: importPath, failed: failedPath } = db.monitoredPaths;
+
+    const oldPath = path.join(failedPath.path, fileName);
+    const newPath = path.join(importPath.path, fileName);
+
+    try {
+        // Check if file exists in the failed path
+        await fs.access(oldPath);
+        
+        // Move the file
+        await fs.rename(oldPath, newPath);
+
+        // Update the status in the database
+        const fileIndex = db.fileStatuses.findIndex(f => f.name === fileName);
+        if (fileIndex !== -1) {
+            db.fileStatuses[fileIndex].status = 'processing';
+            db.fileStatuses[fileIndex].lastUpdated = new Date().toISOString();
+            db.fileStatuses[fileIndex].remarks = 'Retrying file.';
+             await writeDb(db);
+        }
+        
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error: any) {
+        console.error(`Error retrying file ${fileName}:`, error);
+        if (error.code === 'ENOENT') {
+            return { success: false, error: `File not found in failed directory: ${fileName}` };
+        }
+        return { success: false, error: `An unexpected error occurred: ${error.message}` };
+    }
+}
+
+export async function renameFile(oldName: string, newName: string): Promise<{ success: boolean; error?: string }> {
+    const db = await readDb();
+    const { failed: failedPath } = db.monitoredPaths;
+
+    const oldPath = path.join(failedPath.path, oldName);
+    const newPath = path.join(failedPath.path, newName);
+
+     if (oldName === newName) {
+        return { success: true };
+    }
+
+    try {
+        await fs.access(oldPath);
+        
+        try {
+           await fs.access(newPath);
+           return { success: false, error: `A file named "${newName}" already exists.` };
+        } catch (e) {
+            // New path does not exist, which is good.
+        }
+
+        await fs.rename(oldPath, newPath);
+
+        const fileIndex = db.fileStatuses.findIndex(f => f.name === oldName);
+        if (fileIndex !== -1) {
+            db.fileStatuses[fileIndex].name = newName;
+            db.fileStatuses[fileIndex].lastUpdated = new Date().toISOString();
+            db.fileStatuses[fileIndex].remarks = `Renamed from "${oldName}"`;
+            await writeDb(db);
+        }
+        
+        revalidatePath('/dashboard');
+        return { success: true };
+    } catch (error: any) {
+        console.error(`Error renaming file ${oldName}:`, error);
+        if (error.code === 'ENOENT') {
+            return { success: false, error: `File not found to rename: ${oldName}` };
+        }
+        return { success: false, error: `An unexpected error occurred: ${error.message}` };
+    }
+}
+
 export async function updateBrandingSettings(settings: BrandingSettings) {
   const db = await readDb();
   db.branding = settings;
@@ -164,7 +240,11 @@ export async function updateFileRemarks(filePath: string, remarks: string) {
     const fileIndex = db.fileStatuses.findIndex(f => f.name === fileName);
 
     if (fileIndex > -1) {
-        db.fileStatuses[fileIndex].remarks = remarks;
+        if (!db.fileStatuses[fileIndex].remarks) {
+            db.fileStatuses[fileIndex].remarks = remarks;
+        } else if (!db.fileStatuses[fileIndex].remarks?.includes(remarks)) {
+            db.fileStatuses[fileIndex].remarks += `; ${remarks}`;
+        }
         db.fileStatuses[fileIndex].lastUpdated = new Date().toISOString();
         await writeDb(db);
         revalidatePath('/dashboard');
@@ -173,3 +253,5 @@ export async function updateFileRemarks(filePath: string, remarks: string) {
          console.log(`Could not find file ${fileName} to update remarks.`);
     }
 }
+
+    

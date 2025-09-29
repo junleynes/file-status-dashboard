@@ -5,14 +5,24 @@ import { useEffect, useState, useMemo, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { FileStatusTable } from "@/components/file-status-table";
 import { useAuth } from "@/hooks/use-auth";
-import type { FileStatus, CleanupSettings } from "@/types";
+import type { FileStatus } from "@/types";
 import { Trash2, Search, X, CheckCircle2, AlertTriangle, Loader, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { clearAllFileStatuses } from "@/lib/actions";
+import { clearAllFileStatuses, retryFile, renameFile } from "@/lib/actions";
 import { readDb } from "@/lib/db";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -20,6 +30,9 @@ export default function DashboardPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<FileStatus['status'] | 'all'>('all');
   const [isPending, startTransition] = useTransition();
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [fileToRename, setFileToRename] = useState<FileStatus | null>(null);
+  const [newFileName, setNewFileName] = useState("");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -45,6 +58,54 @@ export default function DashboardPage() {
       });
     });
   };
+
+  const handleRetry = (file: FileStatus) => {
+    startTransition(async () => {
+      const result = await retryFile(file.name);
+      if (result.success) {
+        toast({
+          title: "File Sent for Retry",
+          description: `"${file.name}" has been moved back to the import folder.`,
+        });
+      } else {
+        toast({
+          title: "Retry Failed",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+    });
+  }
+
+  const handleOpenRenameDialog = (file: FileStatus) => {
+    setFileToRename(file);
+    setNewFileName(file.name);
+    setIsRenameDialogOpen(true);
+  };
+  
+  const handleRename = () => {
+    if (!fileToRename || !newFileName.trim()) return;
+
+    startTransition(async () => {
+      const result = await renameFile(fileToRename.name, newFileName.trim());
+      if (result.success) {
+        toast({
+          title: "File Renamed",
+          description: `"${fileToRename.name}" has been renamed to "${newFileName.trim()}".`,
+        });
+      } else {
+        toast({
+          title: "Rename Failed",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+       setIsRenameDialogOpen(false);
+       setFileToRename(null);
+       setNewFileName("");
+    });
+  };
+
 
   const filteredFiles = useMemo(() => {
     return files
@@ -151,10 +212,42 @@ export default function DashboardPage() {
                 <Button variant={statusFilter === 'timed-out' ? 'secondary' : 'outline'} className={statusFilter === 'timed-out' ? 'bg-orange-500/80 text-white hover:bg-orange-500/70' : ''} onClick={() => setStatusFilter('timed-out')}>Timed-out</Button>
             </div>
           </div>
-          <FileStatusTable files={filteredFiles} />
+          <FileStatusTable
+            files={filteredFiles}
+            onRetry={handleRetry}
+            onRename={handleOpenRenameDialog}
+          />
         </CardContent>
       </Card>
-
+      
+       <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename File</DialogTitle>
+            <DialogDescription>
+              Enter a new name for the file. The file will remain in the failed directory.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            <Label htmlFor="new-file-name">New File Name</Label>
+            <Input
+              id="new-file-name"
+              value={newFileName}
+              onChange={(e) => setNewFileName(e.target.value)}
+              placeholder="Enter new filename"
+              disabled={isPending}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRenameDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleRename} disabled={isPending || !newFileName.trim()}>
+              {isPending ? 'Renaming...' : 'Rename'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }
+
+    

@@ -13,12 +13,23 @@ import { Badge } from "@/components/ui/badge";
 import type { FileStatus } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
+import { Button } from "./ui/button";
+import { RefreshCw, FilePenLine } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
 
 interface FileStatusTableProps {
   files: FileStatus[];
+  onRetry: (file: FileStatus) => void;
+  onRename: (file: FileStatus) => void;
 }
 
-export function FileStatusTable({ files }: FileStatusTableProps) {
+export function FileStatusTable({ files, onRetry, onRename }: FileStatusTableProps) {
   const getStatusClasses = (status: FileStatus['status']): string => {
     switch (status) {
       case 'processing':
@@ -35,51 +46,92 @@ export function FileStatusTable({ files }: FileStatusTableProps) {
   };
 
   return (
-    <div className="rounded-lg border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[40%]">File Name</TableHead>
-            <TableHead>Source</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="text-right">Last Updated</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <AnimatePresence>
-            {files.length > 0 ? (
-              files.map((file) => (
-                <motion.tr
-                  key={file.id}
-                  layout
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.5 }}
-                  className="w-full"
-                >
-                  <TableCell className="font-medium">{file.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{file.source}</TableCell>
-                  <TableCell>
-                    <Badge className={`${getStatusClasses(file.status)} capitalize transition-colors duration-500`}>
-                      {file.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground">
-                    {formatDistanceToNow(new Date(file.lastUpdated), { addSuffix: true })}
-                  </TableCell>
-                </motion.tr>
-              ))
-            ) : (
-                <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
-                    No files found for the current filter.
+    <TooltipProvider>
+      <div className="rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[35%]">File Name</TableHead>
+              <TableHead>Source</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Last Updated</TableHead>
+              <TableHead className="text-right w-[120px]">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <AnimatePresence>
+              {files.length > 0 ? (
+                files.map((file) => (
+                  <motion.tr
+                    key={file.id}
+                    layout
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="w-full"
+                  >
+                    <TableCell className="font-medium max-w-xs truncate">
+                       <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>{file.name}</span>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{file.name}</p>
+                          {file.remarks && <p className="text-xs text-red-400 mt-1">{file.remarks}</p>}
+                        </TooltipContent>
+                      </Tooltip>
                     </TableCell>
-                </TableRow>
-            )}
-          </AnimatePresence>
-        </TableBody>
-      </Table>
-    </div>
+                    <TableCell className="text-muted-foreground">{file.source}</TableCell>
+                    <TableCell>
+                      <Badge className={`${getStatusClasses(file.status)} capitalize transition-colors duration-500`}>
+                        {file.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDistanceToNow(new Date(file.lastUpdated), { addSuffix: true })}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {file.status === 'failed' && (
+                        <div className="flex gap-1 justify-end">
+                           <Tooltip>
+                            <TooltipTrigger asChild>
+                               <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onRename(file)}>
+                                <FilePenLine className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Rename</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onRetry(file)}>
+                                <RefreshCw className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Retry</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      )}
+                    </TableCell>
+                  </motion.tr>
+                ))
+              ) : (
+                  <TableRow>
+                      <TableCell colSpan={5} className="h-24 text-center">
+                      No files found for the current filter.
+                      </TableCell>
+                  </TableRow>
+              )}
+            </AnimatePresence>
+          </TableBody>
+        </Table>
+      </div>
+    </TooltipProvider>
   );
 }
+
+    
