@@ -27,9 +27,10 @@ interface FileStatusTableProps {
   files: FileStatus[];
   onRetry: (file: FileStatus) => void;
   onRename: (file: FileStatus) => void;
+  isReadOnly?: boolean;
 }
 
-export function FileStatusTable({ files, onRetry, onRename }: FileStatusTableProps) {
+export function FileStatusTable({ files, onRetry, onRename, isReadOnly = false }: FileStatusTableProps) {
   const getStatusClasses = (status: FileStatus['status']): string => {
     switch (status) {
       case 'processing':
@@ -96,17 +97,17 @@ export function FileStatusTable({ files, onRetry, onRename }: FileStatusTablePro
                         <div className="flex gap-1 justify-end">
                            <Tooltip>
                             <TooltipTrigger asChild>
-                               <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onRename(file)}>
+                               <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onRename(file)} disabled={isReadOnly}>
                                 <FilePenLine className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p>Rename</p>
+                              <p>Rename & Retry</p>
                             </TooltipContent>
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onRetry(file)}>
+                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onRetry(file)} disabled={isReadOnly}>
                                 <RefreshCw className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
@@ -133,5 +134,7 @@ export function FileStatusTable({ files, onRetry, onRename }: FileStatusTablePro
     </TooltipProvider>
   );
 }
+
+    
 
     

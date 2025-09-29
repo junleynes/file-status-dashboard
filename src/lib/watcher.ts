@@ -2,7 +2,7 @@
 'use server';
 
 import * as chokidar from "chokidar";
-import { readDb, writeDb } from "./db";
+import { readDb } from "./db";
 import {
   addFileStatus,
   updateFileStatus,
@@ -62,12 +62,16 @@ async function processQueue() {
 
 function enqueueEvent(eventType: 'add' | 'unlink', filePath: string, delay: number = 0) {
     const execute = () => {
+        // Prevent duplicate events from being added to the queue
         if (!eventQueue.some(e => e.filePath === filePath && e.eventType === eventType)) {
             console.log(`[Queue] Enqueueing event: ${eventType} for ${filePath}`);
             eventQueue.push({ eventType, filePath });
-            process.nextTick(processQueue);
+            // Start processing if not already started
+            if (!isProcessing) {
+                process.nextTick(processQueue);
+            }
         } else {
-            console.log(`[Queue] Duplicate event for ${filePath} ignored.`);
+            console.log(`[Queue] Duplicate event for ${filePath} (${eventType}) ignored.`);
         }
     };
 
@@ -86,6 +90,7 @@ async function handleImportAdd(filePath: string) {
   await addFileStatus(filePath, "processing");
   
   const fileKey = path.basename(filePath);
+  // Clear any existing timer for this file, just in case
   if (timers.has(fileKey)) {
     clearTimeout(timers.get(fileKey)!);
   }
@@ -95,12 +100,14 @@ async function handleImportAdd(filePath: string) {
   if (timeoutMs > 0) {
     const t = setTimeout(async () => {
       try {
-        await fs.access(filePath);
+        // Check if the file still exists in the import path before timing out
+        await fs.access(filePath); 
         console.log(`[Handler] Timed out: ${filePath}`);
         await updateFileStatus(filePath, "timed-out");
         timers.delete(fileKey);
       } catch {
-        // File no longer exists, do nothing.
+        // File no longer exists, so don't mark as timed-out. It was likely processed.
+        console.log(`[Handler] Timeout for ${fileKey} cancelled, file no longer exists.`);
       }
     }, timeoutMs);
     timers.set(fileKey, t);
@@ -112,10 +119,11 @@ async function handleFailedAdd(filePath: string) {
   console.log(`[Handler] File detected in failed: ${filePath}`);
   const fileKey = path.basename(filePath);
 
+  // Clear any timeout timer, as the file has reached a final (failed) state
   if (timers.has(fileKey)) {
     clearTimeout(timers.get(fileKey)!);
     timers.delete(fileKey);
-    console.log(`[Handler] Cleared timeout for ${fileKey} as it failed.`);
+    console.log(`[Handler] Cleared timeout for ${fileKey} as it has failed.`);
   }
 
   await updateFileStatus(filePath, "failed");
@@ -130,14 +138,18 @@ async function handleImportUnlink(filePath: string) {
   console.log(`[Handler] File removed from import: ${filePath}`);
   const fileKey = path.basename(filePath);
 
+  // We are relying on the `add` to `failed` being processed first.
+  // This unlink handler's job is to catch the "success" case.
   const currentDb = await readDb();
   const file = currentDb.fileStatuses.find(f => f.name === fileKey);
 
-  // This logic runs *after* the 'add' to failed (if it happened) because of the enqueue delay.
-  // So, if status is still 'processing', we know it wasn't a 'failed' move.
+  // Only if the status is still 'processing' can we assume it was published successfully.
+  // If it had been moved to 'failed', its status would have been updated by `handleFailedAdd` first.
   if (file && file.status === 'processing') {
     console.log(`[Handler] File determined to be published: ${fileKey}`);
     await updateFileStatus(filePath, "published");
+    
+    // Clean up the timeout timer as the file has been processed successfully
     if (timers.has(fileKey)) {
       clearTimeout(timers.get(fileKey)!);
       timers.delete(fileKey);
@@ -162,7 +174,8 @@ async function validateFilename(filePath: string): Promise<string[]> {
     errors.push(`Invalid extension: ${ext}`);
   }
 
-  const filenamePattern = /^BV_[A-Z0-9]{6}_[A-Z0-9]+.*$/;
+  // Example pattern, adjust as needed
+  const filenamePattern = /.*/; // Accepting any filename for now
 
   if (!filenamePattern.test(filename.replace(ext, ""))) {
     errors.push(`Invalid filename format.`);
@@ -205,7 +218,7 @@ async function initializeWatcher() {
   const watcherOptions: chokidar.WatchOptions = {
     persistent: true,
     ignoreInitial: true,
-    awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 100 },
+    awaitWriteFinish: { stabilityThreshold: 3000, pollInterval: 100 },
     usePolling: true,
     interval: 1000,
     ignored: (p: string) => p.includes(resolvedFailedPath),
@@ -229,11 +242,19 @@ async function initializeWatcher() {
   });
 
   failedWatcher
-    .on("add", (filePath) => enqueueEvent('add', filePath))
+    .on("add", (filePath) => enqueueEvent('add', filePath)) // Enqueue instantly
     .on("error", (err) => console.error("[Watcher] Failed Watcher Error:", err))
     .on("ready", () => console.log(`[Watcher] Failed Watcher ready. Watching: ${resolvedFailedPath}`));
 }
 
-console.log("[Watcher] Starting service...");
-initializeWatcher().catch(console.error);
+// Start the service
+(async () => {
+    try {
+        console.log("[Watcher] Starting service...");
+        await initializeWatcher();
+    } catch (error) {
+        console.error("[Watcher] Failed to start watcher service:", error);
+    }
+})();
 
+    

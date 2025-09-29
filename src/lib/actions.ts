@@ -7,6 +7,33 @@ import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatu
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
+export async function checkWriteAccess(): Promise<{ canWrite: boolean; error?: string }> {
+  const db = await readDb();
+  const { import: importPath, failed: failedPath } = db.monitoredPaths;
+
+  const testFilePathImport = path.join(importPath.path, `.write_test_${Date.now()}`);
+  const testFilePathFailed = path.join(failedPath.path, `.write_test_${Date.now()}`);
+
+  try {
+    // Test import folder
+    await fs.writeFile(testFilePathImport, 'test');
+    await fs.unlink(testFilePathImport);
+    
+    // Test failed folder
+    await fs.writeFile(testFilePathFailed, 'test');
+    await fs.unlink(testFilePathFailed);
+
+    return { canWrite: true };
+  } catch (error: any) {
+    if (error.code === 'EACCES') {
+      return { canWrite: false, error: `Permission denied. The application user cannot write to the monitored directories.` };
+    }
+    // This could happen if the path doesn't exist, which is a different problem but still means we can't write.
+    return { canWrite: false, error: error.message };
+  }
+}
+
+
 export async function testPath(path: string): Promise<{ success: boolean; error?: string }> {
     try {
         await fs.access(path);
@@ -81,15 +108,22 @@ export async function renameFile(oldName: string, newName: string): Promise<{ su
 
         const fileIndex = db.fileStatuses.findIndex(f => f.name === oldName);
         if (fileIndex !== -1) {
-            db.fileStatuses[fileIndex].name = newName;
-            db.fileStatuses[fileIndex].status = 'processing';
-            db.fileStatuses[fileIndex].lastUpdated = new Date().toISOString();
-            db.fileStatuses[fileIndex].remarks = `Renamed from "${oldName}" and retrying.`;
-            await writeDb(db);
-        } else {
-             // If for some reason the file isn't in our DB, add it.
-            await addFileStatus(newPath, 'processing');
+            // Found the old record, update it
+            db.fileStatuses.splice(fileIndex, 1); // Remove old record to avoid duplicates
         }
+        
+        // Add a new record for the renamed file
+        const newFileStatus: FileStatus = {
+            id: `file-${Date.now()}-${Math.random()}`,
+            name: newName,
+            status: 'processing',
+            source: importPath.name,
+            lastUpdated: new Date().toISOString(),
+            remarks: `Renamed from "${oldName}" and retrying.`
+        };
+        db.fileStatuses.unshift(newFileStatus);
+        
+        await writeDb(db);
         
         revalidatePath('/dashboard');
         return { success: true };
@@ -104,6 +138,7 @@ export async function renameFile(oldName: string, newName: string): Promise<{ su
         return { success: false, error: `An unexpected error occurred: ${error.message}` };
     }
 }
+
 
 export async function updateBrandingSettings(settings: BrandingSettings) {
   const db = await readDb();
@@ -260,5 +295,7 @@ export async function updateFileRemarks(filePath: string, remarks: string) {
          console.log(`Could not find file ${fileName} to update remarks.`);
     }
 }
+
+    
 
     

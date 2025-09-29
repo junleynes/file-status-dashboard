@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { FileStatusTable } from "@/components/file-status-table";
 import { useAuth } from "@/hooks/use-auth";
 import type { FileStatus } from "@/types";
-import { Trash2, Search, X, CheckCircle2, AlertTriangle, Loader, Clock } from "lucide-react";
+import { Trash2, Search, X, CheckCircle2, AlertTriangle, Loader, Clock, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { clearAllFileStatuses, retryFile, renameFile } from "@/lib/actions";
+import { clearAllFileStatuses, retryFile, renameFile, checkWriteAccess } from "@/lib/actions";
 import { readDb } from "@/lib/db";
 import {
   Dialog,
@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 
 export default function DashboardPage() {
@@ -34,6 +35,7 @@ export default function DashboardPage() {
   const [fileToRename, setFileToRename] = useState<FileStatus | null>(null);
   const [newFileName, setNewFileName] = useState("");
   const { toast } = useToast();
+  const [canWrite, setCanWrite] = useState(true);
 
   useEffect(() => {
     const fetchFiles = async () => {
@@ -47,6 +49,16 @@ export default function DashboardPage() {
 
     return () => clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    // Check write access when the component mounts
+    async function verifyAccess() {
+      const { canWrite } = await checkWriteAccess();
+      setCanWrite(canWrite);
+    }
+    verifyAccess();
+  }, []);
+
 
   const handleClearAll = () => {
     startTransition(async () => {
@@ -189,6 +201,14 @@ export default function DashboardPage() {
              <CardTitle>File Status</CardTitle>
         </CardHeader>
         <CardContent>
+          {!canWrite && (
+            <Alert variant="destructive" className="mb-4">
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                The application does not have write permissions for the monitored folders. The "Retry" and "Rename" actions are disabled. Please grant write access to the application user on the server or contact your system administrator.
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -216,6 +236,7 @@ export default function DashboardPage() {
             files={filteredFiles}
             onRetry={handleRetry}
             onRename={handleOpenRenameDialog}
+            isReadOnly={!canWrite}
           />
         </CardContent>
       </Card>
@@ -249,5 +270,7 @@ export default function DashboardPage() {
     </motion.div>
   );
 }
+
+    
 
     
