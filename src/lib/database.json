@@ -1,3 +1,4 @@
+
 {
   "users": [
     {
@@ -56,10 +57,5 @@
       "unit": "hours"
     }
   },
-  "failureRemarks": [
-    "Filename does not match base code of placeholder.",
-    "No placeholder created for this media.",
-    "Placeholder already contains media."
-  ]
+  "failureRemark": "Filename does not match base code of placeholder."
 }
-    

@@ -54,7 +54,5 @@ export type Database = {
     monitoredExtensions: string[];
     fileStatuses: FileStatus[];
     cleanupSettings: CleanupSettings;
-    failureRemarks: string[];
+    failureRemark: string;
 }
-
-    

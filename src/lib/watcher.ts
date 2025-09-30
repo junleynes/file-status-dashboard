@@ -128,7 +128,7 @@ async function handleFailedAdd(filePath: string) {
   }
 
   await updateFileStatus(filePath, "failed");
-  const remarks = await validateFilename(filePath);
+  const remarks = await getFailureRemark();
   if (remarks) {
     await updateFileRemarks(filePath, remarks);
   }
@@ -163,23 +163,9 @@ async function handleImportUnlink(filePath: string) {
 
 // --- Utility Functions ---
 
-async function validateFilename(filePath: string): Promise<string | null> {
+async function getFailureRemark(): Promise<string> {
   const db = await readDb();
-  const failureRemarks = db.failureRemarks || [];
-
-  if (failureRemarks.length === 0) {
-    return "File processing failed."; // Default remark
-  }
-
-  // This is a mock validation. In a real-world scenario, you would have
-  // specific logic to determine which failure remark to use.
-  // Here, we'll just cycle through the available remarks for demonstration.
-  
-  // A simple way to get a "random" but deterministic-like index based on filename
-  const charSum = path.basename(filePath).split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  const index = charSum % failureRemarks.length;
-  
-  return failureRemarks[index];
+  return db.failureRemark || "File processing failed.";
 }
 
 function getTimeoutMs(db: Database): number {
