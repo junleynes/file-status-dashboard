@@ -33,12 +33,11 @@ import {
     updateCleanupSettings,
     testPath,
     updateFailureRemark,
-    generateTwoFactorSecret,
+    enableTwoFactor,
     disableTwoFactor,
 } from "@/lib/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Skeleton } from "@/components/ui/skeleton";
 
 const defaultImportPath: MonitoredPath = {
   id: 'import-path',
@@ -74,9 +73,6 @@ export default function SettingsPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
-  const [isTwoFactorDialogOpen, setIsTwoFactorDialogOpen] = useState(false);
-  const [twoFactorQrCode, setTwoFactorQrCode] = useState<string | null>(null);
-  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
 
   const [cleanupSettings, setCleanupSettings] = useState<CleanupSettings>({
       status: { enabled: true, value: '7', unit: 'days'},
@@ -308,20 +304,12 @@ export default function SettingsPage() {
     });
   };
   
-  const handleOpenTwoFactorDialog = async (userFor2fa: User) => {
-    setSelectedUser(userFor2fa);
-    setIsTwoFactorDialogOpen(true);
-    setTwoFactorLoading(true);
-    try {
-        const { qrCodeDataUrl } = await generateTwoFactorSecret(userFor2fa.id, userFor2fa.username, brandName);
-        setTwoFactorQrCode(qrCodeDataUrl);
+  const handleEnableTwoFactor = async (userId: string) => {
+    startTransition(async () => {
+        await enableTwoFactor(userId);
         await refreshUsers();
-    } catch (error) {
-        toast({ title: "Error", description: "Could not generate 2FA secret.", variant: "destructive" });
-        setIsTwoFactorDialogOpen(false);
-    } finally {
-        setTwoFactorLoading(false);
-    }
+        toast({ title: "2FA Enabled", description: "User will be prompted to set up 2FA on their next login." });
+    });
   };
 
   const handleDisableTwoFactor = async (userId: string) => {
@@ -531,13 +519,13 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <div className="flex items-center gap-1">
-                                {u.twoFactorEnabled ? (
+                                {u.twoFactorRequired ? (
                                     <Button variant="outline" size="sm" onClick={() => handleDisableTwoFactor(u.id)} disabled={isPending}>
                                         <ShieldOff className="mr-2 h-4 w-4 text-destructive" />
                                         Disable 2FA
                                     </Button>
                                 ) : (
-                                     <Button variant="outline" size="sm" onClick={() => handleOpenTwoFactorDialog(u)} disabled={isPending}>
+                                     <Button variant="outline" size="sm" onClick={() => handleEnableTwoFactor(u.id)} disabled={isPending}>
                                         <ShieldCheck className="mr-2 h-4 w-4 text-green-600" />
                                         Enable 2FA
                                     </Button>
@@ -800,33 +788,6 @@ export default function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <Dialog open={isTwoFactorDialogOpen} onOpenChange={setIsTwoFactorDialogOpen}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Enable Two-Factor Authentication for {selectedUser?.name}</DialogTitle>
-                <DialogDescription>
-                    Scan the QR code below with your authenticator app (e.g., Google Authenticator, Authy).
-                </DialogDescription>
-            </DialogHeader>
-            <div className="flex justify-center items-center py-4">
-                {twoFactorLoading ? (
-                    <div className="flex flex-col items-center gap-4">
-                        <Skeleton className="h-48 w-48" />
-                        <Skeleton className="h-4 w-32" />
-                    </div>
-                ) : twoFactorQrCode ? (
-                    <Image src={twoFactorQrCode} alt="2FA QR Code" width={200} height={200} />
-                ) : (
-                    <p>Could not load QR code.</p>
-                )}
-            </div>
-             <DialogFooter>
-                <Button onClick={() => setIsTwoFactorDialogOpen(false)}>Done</Button>
-            </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
     </motion.div>
   );
 }

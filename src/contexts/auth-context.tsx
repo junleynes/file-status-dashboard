@@ -13,7 +13,7 @@ interface AuthContextType {
   user: User | null;
   users: User[];
   loading: boolean;
-  login: (username: string, password: string) => Promise<{ success: boolean; twoFactorRequired: boolean; user?: User }>;
+  login: (username: string, password: string) => Promise<{ success: boolean; twoFactorRequired: boolean; requiresTwoFactorSetup: boolean; user?: User }>;
   completeTwoFactorLogin: (userId: string, token: string) => Promise<boolean>;
   logout: () => void;
   addUser: (user: User) => Promise<boolean>;
@@ -67,21 +67,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkUser();
   }, [refreshUsers]);
 
-  const login = async (username: string, password: string): Promise<{ success: boolean; twoFactorRequired: boolean; user?: User }> => {
+  const login = async (username: string, password: string): Promise<{ success: boolean; twoFactorRequired: boolean; requiresTwoFactorSetup: boolean; user?: User }> => {
     const db = await readDb();
     const userToLogin = db.users.find(u => u.username === username && u.password === password);
     if (userToLogin) {
-      if (userToLogin.twoFactorEnabled) {
-        return { success: true, twoFactorRequired: true, user: userToLogin };
+      if (userToLogin.twoFactorRequired) {
+        const requiresSetup = !userToLogin.twoFactorSecret;
+        return { success: true, twoFactorRequired: true, requiresTwoFactorSetup: requiresSetup, user: userToLogin };
       } else {
         const { password: _, ...userToStore } = userToLogin;
         localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(userToStore));
         setUser(userToStore);
         await refreshUsers();
-        return { success: true, twoFactorRequired: false };
+        return { success: true, twoFactorRequired: false, requiresTwoFactorSetup: false };
       }
     }
-    return { success: false, twoFactorRequired: false };
+    return { success: false, twoFactorRequired: false, requiresTwoFactorSetup: false };
   };
   
   const completeTwoFactorLogin = async (userId: string, token: string): Promise<boolean> => {

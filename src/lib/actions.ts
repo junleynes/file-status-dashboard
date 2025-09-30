@@ -10,25 +10,39 @@ import { authenticator } from 'otplib';
 import qrcode from 'qrcode';
 
 
-export async function generateTwoFactorSecret(userId: string, username: string, issuer: string) {
+export async function generateTwoFactorSecretForUser(userId: string, username: string, issuer: string) {
   const db = await readDb();
   const user = db.users.find(u => u.id === userId);
   if (!user) {
     throw new Error('User not found');
   }
 
-  const secret = authenticator.generateSecret();
-  const otpauth = authenticator.keyuri(username, issuer, secret);
-
-  user.twoFactorSecret = secret;
-  user.twoFactorEnabled = true;
-
-  await writeDb(db);
-  revalidatePath('/settings');
+  // Only generate a new secret if one doesn't already exist.
+  if (!user.twoFactorSecret) {
+    const secret = authenticator.generateSecret();
+    user.twoFactorSecret = secret;
+    await writeDb(db);
+    revalidatePath('/settings'); // To update user data for other admins
+  }
   
+  const otpauth = authenticator.keyuri(username, issuer, user.twoFactorSecret!);
   const qrCodeDataUrl = await qrcode.toDataURL(otpauth);
 
-  return { secret, qrCodeDataUrl };
+  return { qrCodeDataUrl };
+}
+
+export async function enableTwoFactor(userId: string) {
+    const db = await readDb();
+    const user = db.users.find(u => u.id === userId);
+    if (!user) {
+        throw new Error('User not found');
+    }
+
+    user.twoFactorRequired = true;
+    // Don't reset the secret here, allow disabling and re-enabling without forcing a re-scan
+    // The secret will be generated on first-time setup during login.
+    await writeDb(db);
+    revalidatePath('/settings');
 }
 
 export async function disableTwoFactor(userId: string) {
@@ -38,8 +52,8 @@ export async function disableTwoFactor(userId: string) {
         throw new Error('User not found');
     }
 
-    user.twoFactorEnabled = false;
-    user.twoFactorSecret = null;
+    user.twoFactorRequired = false;
+    user.twoFactorSecret = null; // Clear the secret when disabling
     await writeDb(db);
     revalidatePath('/settings');
 }
@@ -216,7 +230,7 @@ export async function addUser(newUser: User): Promise<{ success: boolean, messag
 
   const userToAdd: User = {
     ...newUser,
-    twoFactorEnabled: false,
+    twoFactorRequired: false,
     twoFactorSecret: null,
   };
 
@@ -279,7 +293,7 @@ export async function updateFailureRemark(remark: string) {
     const db = await readDb();
     db.failureRemark = remark;
     await writeDb(db);
-    revalidatePath('/settings');
+revalidatePath('/settings');
 }
 
 

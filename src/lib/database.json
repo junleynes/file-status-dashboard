@@ -9,7 +9,7 @@
       "password": "P@ssw0rd",
       "role": "admin",
       "avatar": null,
-      "twoFactorEnabled": false,
+      "twoFactorRequired": false,
       "twoFactorSecret": null
     },
     {
@@ -20,7 +20,7 @@
       "password": "P@ssw0rd",
       "role": "user",
       "avatar": null,
-      "twoFactorEnabled": false,
+      "twoFactorRequired": false,
       "twoFactorSecret": null
     }
   ],

@@ -7,7 +7,7 @@ export type User = {
   role: 'admin' | 'user';
   password?: string;
   avatar?: string | null;
-  twoFactorEnabled?: boolean;
+  twoFactorRequired?: boolean;
   twoFactorSecret?: string | null;
 };
 
