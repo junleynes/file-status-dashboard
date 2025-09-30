@@ -129,8 +129,8 @@ async function handleFailedAdd(filePath: string) {
 
   await updateFileStatus(filePath, "failed");
   const remarks = await validateFilename(filePath);
-  if (remarks.length > 0) {
-    await updateFileRemarks(filePath, remarks.join("; "));
+  if (remarks) {
+    await updateFileRemarks(filePath, remarks);
   }
 }
 
@@ -163,39 +163,23 @@ async function handleImportUnlink(filePath: string) {
 
 // --- Utility Functions ---
 
-async function validateFilename(filePath: string): Promise<string[]> {
+async function validateFilename(filePath: string): Promise<string | null> {
   const db = await readDb();
-  const errors: string[] = [];
-  const filename = path.basename(filePath);
-  const ext = path.extname(filename).toLowerCase();
+  const failureRemarks = db.failureRemarks || [];
 
-  // Mocking placeholder logic for demonstration
-  const mockPlaceholders = [
-    { baseCode: "ABC_123", hasMedia: false },
-    { baseCode: "XYZ_789", hasMedia: true },
-  ];
-  const baseCode = filename.split('.')[0];
-
-  const placeholder = mockPlaceholders.find(p => p.baseCode === baseCode);
-
-  if (!placeholder) {
-    errors.push("No placeholder found for this media file.");
-  } else if (placeholder.hasMedia) {
-    errors.push("Placeholder already contains media.");
+  if (failureRemarks.length === 0) {
+    return "File processing failed."; // Default remark
   }
 
-  const validExts = db.monitoredExtensions.map(e => `.${e}`);
-
-  if (validExts.length > 0 && !validExts.includes(ext)) {
-    errors.push(`Invalid extension: ${ext}`);
-  }
-
-  // Example of filename not matching base code (this is a simplified example)
-  if (baseCode.includes(" ") || !/^[A-Z0-9_]+$/.test(baseCode)) {
-      errors.push("Filename does not match the expected base code format.");
-  }
-
-  return errors;
+  // This is a mock validation. In a real-world scenario, you would have
+  // specific logic to determine which failure remark to use.
+  // Here, we'll just cycle through the available remarks for demonstration.
+  
+  // A simple way to get a "random" but deterministic-like index based on filename
+  const charSum = path.basename(filePath).split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const index = charSum % failureRemarks.length;
+  
+  return failureRemarks[index];
 }
 
 function getTimeoutMs(db: Database): number {
