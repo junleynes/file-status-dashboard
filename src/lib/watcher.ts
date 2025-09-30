@@ -34,16 +34,15 @@ async function pollDirectories() {
         return;
     }
     
-    const dbFileMap = new Map(db.fileStatuses.map(f => [f.name, f]));
     let hasDbChanged = false;
 
-    // --- Pass 1: Handle failed files ---
+    // --- Pass 1: Handle failed files (Highest Priority) ---
     const filesInFailed = await fs.readdir(failedPath).catch(() => [] as string[]);
     const failureRemark = await getFailureRemark();
     for (const fileName of filesInFailed) {
-      const fileInDb = dbFileMap.get(fileName);
+      const fileInDb = db.fileStatuses.find(f => f.name === fileName);
       if (fileInDb && fileInDb.status !== 'failed') {
-        console.log(`[Polling] Updating status to 'failed' for: ${fileName}`);
+        console.log(`[Polling] Pass 1: Updating status to 'failed' for: ${fileName}`);
         fileInDb.status = 'failed';
         fileInDb.remarks = failureRemark;
         fileInDb.lastUpdated = new Date().toISOString();
@@ -51,23 +50,32 @@ async function pollDirectories() {
       }
     }
 
-    // --- Pass 2: Handle new and processing files ---
+    // --- Pass 2: Handle new and re-processed files in Import ---
     const filesInImport = await fs.readdir(importPath).catch(() => [] as string[]);
     for (const fileName of filesInImport) {
        if (monitoredExtensions.size > 0 && !monitoredExtensions.has(path.extname(fileName).toLowerCase())) {
-            continue;
+            continue; // Skip files that are not monitored
         }
-      if (!dbFileMap.has(fileName)) {
-        console.log(`[Polling] Detected new file: ${fileName}. Setting to processing.`);
+        
+      const fileInDb = db.fileStatuses.find(f => f.name === fileName);
+      if (!fileInDb) {
+        console.log(`[Polling] Pass 2: Detected new file: ${fileName}. Setting to processing.`);
         const newFile: FileStatus = {
           id: `file-${Date.now()}-${Math.random()}`,
           name: fileName,
           status: 'processing',
           source: db.monitoredPaths.import.name,
           lastUpdated: new Date().toISOString(),
+          remarks: ''
         };
         db.fileStatuses.unshift(newFile);
-        dbFileMap.set(fileName, newFile); // Keep map in sync
+        hasDbChanged = true;
+      } else if (fileInDb.status === 'published' || fileInDb.status === 'failed') {
+        // Handle case where a file with the same name is re-imported
+        console.log(`[Polling] Pass 2: Detected re-imported file: ${fileName}. Setting back to processing.`);
+        fileInDb.status = 'processing';
+        fileInDb.lastUpdated = new Date().toISOString();
+        fileInDb.remarks = ''; // Clear old remarks
         hasDbChanged = true;
       }
     }
@@ -75,12 +83,12 @@ async function pollDirectories() {
     // --- Pass 3: Check for published files ---
     const filesInImportSet = new Set(filesInImport);
     for (const file of db.fileStatuses) {
-        // Only check files that are "processing"
+        // Only check files that are currently "processing"
         if (file.status === 'processing') {
-            // If it's not in the import folder anymore... it must be published.
-            // We already handled the 'failed' case in Pass 1.
+            // If it's not in the import folder anymore, it must be published.
+            // We know it's not 'failed' because Pass 1 runs first.
             if (!filesInImportSet.has(file.name)) {
-                console.log(`[Polling] File ${file.name} is no longer in import. Marking as published.`);
+                console.log(`[Polling] Pass 3: File ${file.name} is no longer in import. Marking as published.`);
                 file.status = 'published';
                 file.lastUpdated = new Date().toISOString();
                 hasDbChanged = true;
@@ -89,7 +97,7 @@ async function pollDirectories() {
     }
 
     if (hasDbChanged) {
-        // Sort by date before writing
+        // Sort by date before writing to keep the list chronological
         db.fileStatuses.sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
         await writeDb(db);
     }
