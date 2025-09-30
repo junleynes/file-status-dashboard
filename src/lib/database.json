@@ -58,7 +58,7 @@
       "unit": "hours"
     },
     "timeout": {
-      "enabled": false,
+      "enabled": true,
       "value": "24",
       "unit": "hours"
     }
