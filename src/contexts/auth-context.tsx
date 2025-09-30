@@ -4,7 +4,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { User } from '@/types';
 import { readDb } from '@/lib/db';
-import { addUser as addUserAction, removeUser as removeUserAction, updateUserPassword as updateUserPasswordAction, updateUser as updateUserAction } from '@/lib/actions';
+import { addUser as addUserAction, removeUser as removeUserAction, updateUserPassword as updateUserPasswordAction, updateUser as updateUserAction, verifyTwoFactorToken } from '@/lib/actions';
 
 
 const CURRENT_USER_STORAGE_KEY = 'file-tracker-user';
@@ -13,7 +13,8 @@ interface AuthContextType {
   user: User | null;
   users: User[];
   loading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<{ success: boolean; twoFactorRequired: boolean; user?: User }>;
+  completeTwoFactorLogin: (userId: string, token: string) => Promise<boolean>;
   logout: () => void;
   addUser: (user: User) => Promise<boolean>;
   removeUser: (userId: string) => Promise<void>;
@@ -66,15 +67,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkUser();
   }, [refreshUsers]);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (username: string, password: string): Promise<{ success: boolean; twoFactorRequired: boolean; user?: User }> => {
     const db = await readDb();
-    const userToLogin = db.users.find(u => u.email === email && u.password === password);
+    const userToLogin = db.users.find(u => u.username === username && u.password === password);
     if (userToLogin) {
-      const { password: _, ...userToStore } = userToLogin;
-      localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(userToStore));
-      setUser(userToStore);
-      await refreshUsers(); // Refresh users on login
-      return true;
+      if (userToLogin.twoFactorEnabled) {
+        return { success: true, twoFactorRequired: true, user: userToLogin };
+      } else {
+        const { password: _, ...userToStore } = userToLogin;
+        localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(userToStore));
+        setUser(userToStore);
+        await refreshUsers();
+        return { success: true, twoFactorRequired: false };
+      }
+    }
+    return { success: false, twoFactorRequired: false };
+  };
+  
+  const completeTwoFactorLogin = async (userId: string, token: string): Promise<boolean> => {
+    const isValid = await verifyTwoFactorToken(userId, token);
+    if (isValid) {
+      const db = await readDb();
+      const userToLogin = db.users.find(u => u.id === userId);
+      if (userToLogin) {
+        const { password: _, ...userToStore } = userToLogin;
+        localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(userToStore));
+        setUser(userToStore);
+        await refreshUsers();
+        return true;
+      }
     }
     return false;
   };
@@ -120,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshCurrentUser();
   }
 
-  const value = { user, users, loading, login, logout, addUser, removeUser, updateUserPassword, updateOwnPassword, updateUser, refreshUsers, refreshCurrentUser };
+  const value = { user, users, loading, login, completeTwoFactorLogin, logout, addUser, removeUser, updateUserPassword, updateOwnPassword, updateUser, refreshUsers, refreshCurrentUser };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

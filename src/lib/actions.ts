@@ -6,6 +6,56 @@ import { readDb, writeDb } from './db';
 import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatus, MonitoredPath } from '../types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { authenticator } from 'otplib';
+import qrcode from 'qrcode';
+
+
+export async function generateTwoFactorSecret(userId: string, username: string, issuer: string) {
+  const db = await readDb();
+  const user = db.users.find(u => u.id === userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  const secret = authenticator.generateSecret();
+  const otpauth = authenticator.keyuri(username, issuer, secret);
+
+  user.twoFactorSecret = secret;
+  user.twoFactorEnabled = true;
+
+  await writeDb(db);
+  revalidatePath('/settings');
+  
+  const qrCodeDataUrl = await qrcode.toDataURL(otpauth);
+
+  return { secret, qrCodeDataUrl };
+}
+
+export async function disableTwoFactor(userId: string) {
+    const db = await readDb();
+    const user = db.users.find(u => u.id === userId);
+    if (!user) {
+        throw new Error('User not found');
+    }
+
+    user.twoFactorEnabled = false;
+    user.twoFactorSecret = null;
+    await writeDb(db);
+    revalidatePath('/settings');
+}
+
+
+export async function verifyTwoFactorToken(userId: string, token: string) {
+  const db = await readDb();
+  const user = db.users.find(u => u.id === userId);
+
+  if (!user || !user.twoFactorSecret) {
+    return false;
+  }
+  
+  return authenticator.verify({ token, secret: user.twoFactorSecret });
+}
+
 
 export async function checkWriteAccess(): Promise<{ canWrite: boolean; error?: string }> {
   const db = await readDb();
@@ -155,11 +205,22 @@ export async function updateBrandingSettings(settings: BrandingSettings) {
 
 export async function addUser(newUser: User): Promise<{ success: boolean, message?: string }> {
   const db = await readDb();
-  const userExists = db.users.some(u => u.email === newUser.email);
+  const userExists = db.users.some(u => u.username === newUser.username);
   if (userExists) {
+    return { success: false, message: "A user with this username already exists." };
+  }
+  const emailExists = db.users.some(u => u.email === newUser.email);
+  if (emailExists) {
     return { success: false, message: "A user with this email already exists." };
   }
-  const updatedUsers = [...db.users, newUser];
+
+  const userToAdd: User = {
+    ...newUser,
+    twoFactorEnabled: false,
+    twoFactorSecret: null,
+  };
+
+  const updatedUsers = [...db.users, userToAdd];
   await writeDb({ ...db, users: updatedUsers });
   revalidatePath('/settings');
   return { success: true };
@@ -184,7 +245,7 @@ export async function updateUserPassword(userId: string, newPassword: string) {
 export async function updateUser(user: User) {
     const db = await readDb();
     const updatedUsers = db.users.map(u => 
-      u.id === user.id ? { ...u, ...user } : u
+      u.id === user.id ? { ...db.users.find(dbu => dbu.id === u.id), ...user } : u
     );
     await writeDb({ ...db, users: updatedUsers });
     revalidatePath('/settings');

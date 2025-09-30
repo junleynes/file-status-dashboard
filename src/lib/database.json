@@ -3,19 +3,25 @@
   "users": [
     {
       "id": "admin-user-01",
+      "username": "admin",
       "name": "Admin User",
       "email": "admin@example.com",
       "password": "P@ssw0rd",
       "role": "admin",
-      "avatar": null
+      "avatar": null,
+      "twoFactorEnabled": false,
+      "twoFactorSecret": null
     },
     {
       "id": "user-1756021474128",
+      "username": "user",
       "name": "Test User",
       "email": "user@example.com",
       "password": "P@ssw0rd",
       "role": "user",
-      "avatar": null
+      "avatar": null,
+      "twoFactorEnabled": false,
+      "twoFactorSecret": null
     }
   ],
   "branding": {

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MonitoredPath, MonitoredPaths, User, CleanupSettings } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning } from "lucide-react";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -32,10 +32,13 @@ import {
     removeMonitoredExtension,
     updateCleanupSettings,
     testPath,
-    updateFailureRemark
+    updateFailureRemark,
+    generateTwoFactorSecret,
+    disableTwoFactor,
 } from "@/lib/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const defaultImportPath: MonitoredPath = {
   id: 'import-path',
@@ -62,6 +65,7 @@ export default function SettingsPage() {
   const [localBrandName, setLocalBrandName] = useState(brandName);
   const [localFooterText, setLocalFooterText] = useState(footerText);
 
+  const [newUsername, setNewUsername] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
@@ -70,6 +74,9 @@ export default function SettingsPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [isTwoFactorDialogOpen, setIsTwoFactorDialogOpen] = useState(false);
+  const [twoFactorQrCode, setTwoFactorQrCode] = useState<string | null>(null);
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
 
   const [cleanupSettings, setCleanupSettings] = useState<CleanupSettings>({
       status: { enabled: true, value: '7', unit: 'days'},
@@ -243,13 +250,14 @@ export default function SettingsPage() {
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUserName || !newUserEmail || !newUserPassword) {
+    if (!newUsername || !newUserName || !newUserEmail || !newUserPassword) {
       toast({ title: "Missing User Information", description: "Please fill out all fields to add a user.", variant: "destructive" });
       return;
     }
     startTransition(async () => {
         const success = await addUser({
             id: 'user-' + Date.now(),
+            username: newUsername,
             name: newUserName,
             email: newUserEmail,
             password: newUserPassword,
@@ -259,12 +267,13 @@ export default function SettingsPage() {
 
         if (success) {
             toast({ title: "User Added", description: `User ${newUserName} has been added successfully.` });
+            setNewUsername('');
             setNewUserName('');
             setNewUserEmail('');
             setNewUserPassword('');
             setNewUserRole('user');
         } else {
-            toast({ title: "Error", description: "A user with this email already exists.", variant: "destructive" });
+            toast({ title: "Error", description: "A user with this username or email already exists.", variant: "destructive" });
         }
     });
   };
@@ -296,6 +305,30 @@ export default function SettingsPage() {
         toast({ title: "Password Reset", description: `Password for ${selectedUser.name} has been updated.` });
         setIsResetDialogOpen(false);
         setSelectedUser(null);
+    });
+  };
+  
+  const handleOpenTwoFactorDialog = async (userFor2fa: User) => {
+    setSelectedUser(userFor2fa);
+    setIsTwoFactorDialogOpen(true);
+    setTwoFactorLoading(true);
+    try {
+        const { qrCodeDataUrl } = await generateTwoFactorSecret(userFor2fa.id, userFor2fa.username, brandName);
+        setTwoFactorQrCode(qrCodeDataUrl);
+        await refreshUsers();
+    } catch (error) {
+        toast({ title: "Error", description: "Could not generate 2FA secret.", variant: "destructive" });
+        setIsTwoFactorDialogOpen(false);
+    } finally {
+        setTwoFactorLoading(false);
+    }
+  };
+
+  const handleDisableTwoFactor = async (userId: string) => {
+    startTransition(async () => {
+        await disableTwoFactor(userId);
+        await refreshUsers();
+        toast({ title: "2FA Disabled", description: "Two-factor authentication has been disabled for this user." });
     });
   };
 
@@ -436,16 +469,20 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAddUser} className="mb-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] gap-4 items-end">
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+               <div className="space-y-2">
+                  <Label htmlFor="new-user-username">Username</Label>
+                  <Input id="new-user-username" placeholder="johndoe" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} disabled={isPending} />
+              </div>
               <div className="space-y-2">
-                  <Label htmlFor="new-user-name">Name</Label>
+                  <Label htmlFor="new-user-name">Full Name</Label>
                   <Input id="new-user-name" placeholder="John Doe" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} disabled={isPending} />
               </div>
               <div className="space-y-2">
                   <Label htmlFor="new-user-email">Email</Label>
                   <Input id="new-user-email" type="email" placeholder="user@example.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} disabled={isPending} />
               </div>
-              <div className="space-y-2">
+               <div className="space-y-2">
                   <Label htmlFor="new-user-password">Password</Label>
                   <Input id="new-user-password" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} disabled={isPending} />
               </div>
@@ -462,11 +499,11 @@ export default function SettingsPage() {
                       </div>
                   </RadioGroup>
               </div>
-            </div>
-             <Button type="submit" disabled={isPending}>
+               <Button type="submit" disabled={isPending} className="w-full lg:w-auto">
                   <UserPlus className="mr-2 h-4 w-4" />
                   Add User
               </Button>
+            </div>
           </form>
 
           <div className="space-y-2 rounded-lg border p-2">
@@ -488,12 +525,23 @@ export default function SettingsPage() {
                                     {u.avatar && <AvatarImage src={u.avatar} alt={u.name ?? ''} />}
                                     <AvatarFallback>{u.name?.[0].toUpperCase()}</AvatarFallback>
                                 </Avatar>
-                                <div className="flex flex-col">
-                                    <p className="font-medium text-sm">{u.name} <span className="text-xs text-muted-foreground capitalize">({u.role})</span></p>
-                                    <p className="text-xs text-muted-foreground">{u.email}</p>
+                                <div>
+                                    <p className="font-medium text-sm">{u.name} <span className="text-xs text-muted-foreground">({u.role})</span></p>
+                                    <p className="text-xs text-muted-foreground">@{u.username} &middot; {u.email}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-1">
+                                {u.twoFactorEnabled ? (
+                                    <Button variant="outline" size="sm" onClick={() => handleDisableTwoFactor(u.id)} disabled={isPending}>
+                                        <ShieldOff className="mr-2 h-4 w-4 text-destructive" />
+                                        Disable 2FA
+                                    </Button>
+                                ) : (
+                                     <Button variant="outline" size="sm" onClick={() => handleOpenTwoFactorDialog(u)} disabled={isPending}>
+                                        <ShieldCheck className="mr-2 h-4 w-4 text-green-600" />
+                                        Enable 2FA
+                                    </Button>
+                                )}
                                 <Button variant="outline" size="sm" onClick={() => handleOpenResetDialog(u)} disabled={isPending}>
                                     <KeyRound className="mr-2 h-4 w-4" />
                                     Reset Password
@@ -752,6 +800,33 @@ export default function SettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isTwoFactorDialogOpen} onOpenChange={setIsTwoFactorDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Enable Two-Factor Authentication for {selectedUser?.name}</DialogTitle>
+                <DialogDescription>
+                    Scan the QR code below with your authenticator app (e.g., Google Authenticator, Authy).
+                </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-center items-center py-4">
+                {twoFactorLoading ? (
+                    <div className="flex flex-col items-center gap-4">
+                        <Skeleton className="h-48 w-48" />
+                        <Skeleton className="h-4 w-32" />
+                    </div>
+                ) : twoFactorQrCode ? (
+                    <Image src={twoFactorQrCode} alt="2FA QR Code" width={200} height={200} />
+                ) : (
+                    <p>Could not load QR code.</p>
+                )}
+            </div>
+             <DialogFooter>
+                <Button onClick={() => setIsTwoFactorDialogOpen(false)}>Done</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </motion.div>
   );
 }
