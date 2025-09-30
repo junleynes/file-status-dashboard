@@ -42,6 +42,9 @@ async function pollDirectories() {
 
     // --- Pass 1: Handle failed files (Highest Priority) ---
     for (const fileName of filesInFailed) {
+      if (monitoredExtensions.size > 0 && !monitoredExtensions.has(path.extname(fileName).toLowerCase())) {
+        continue; // Skip files that are not monitored
+      }
       let fileInDb = db.fileStatuses.find(f => f.name === fileName);
       if (!fileInDb) {
          fileInDb = {
