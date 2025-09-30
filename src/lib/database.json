@@ -47,9 +47,9 @@
       "unit": "days"
     },
     "files": {
-      "enabled": false,
-      "value": "30",
-      "unit": "days"
+      "enabled": true,
+      "value": "12",
+      "unit": "hours"
     },
     "timeout": {
       "enabled": false,
@@ -57,5 +57,5 @@
       "unit": "hours"
     }
   },
-  "failureRemark": "Filename does not match base code of placeholder."
+  "failureRemark": "Filename does not match bascode of placeholder, no placeholder create or contains media already."
 }
