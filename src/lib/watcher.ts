@@ -14,11 +14,9 @@ let isCleaning = false;
 
 async function pollDirectories() {
   if (isPolling) {
-    console.log('[Polling] Previous poll still running. Skipping.');
     return;
   }
   isPolling = true;
-  console.log('[Polling] Starting directory scan...');
 
   try {
     const db = await readDb();
@@ -46,7 +44,6 @@ async function pollDirectories() {
     for (const fileName of filesInFailed) {
       let fileInDb = db.fileStatuses.find(f => f.name === fileName);
       if (!fileInDb) {
-         console.log(`[Polling] Pass 1: Detected untracked file in failed: ${fileName}. Adding and marking as failed.`);
          fileInDb = {
             id: `file-${Date.now()}-${Math.random()}`,
             name: fileName,
@@ -56,12 +53,13 @@ async function pollDirectories() {
             remarks: failureRemark
          };
          db.fileStatuses.unshift(fileInDb);
+         console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" marked as failed (detected in rejected folder).`);
          hasDbChanged = true;
       } else if (fileInDb.status !== 'failed') {
-        console.log(`[Polling] Pass 1: Updating status to 'failed' for: ${fileName}`);
         fileInDb.status = 'failed';
         fileInDb.remarks = failureRemark;
         fileInDb.lastUpdated = new Date().toISOString();
+        console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" updated to failed.`);
         hasDbChanged = true;
       }
     }
@@ -74,7 +72,6 @@ async function pollDirectories() {
         
       const fileInDb = db.fileStatuses.find(f => f.name === fileName);
       if (!fileInDb) {
-        console.log(`[Polling] Pass 2: Detected new file: ${fileName}. Setting to processing.`);
         const newFile: FileStatus = {
           id: `file-${Date.now()}-${Math.random()}`,
           name: fileName,
@@ -84,12 +81,13 @@ async function pollDirectories() {
           remarks: ''
         };
         db.fileStatuses.unshift(newFile);
+        console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" marked as processing (newly detected).`);
         hasDbChanged = true;
       } else if (fileInDb.status === 'published' || fileInDb.status === 'failed') {
-        console.log(`[Polling] Pass 2: Detected re-imported file: ${fileName}. Setting back to processing.`);
         fileInDb.status = 'processing';
         fileInDb.lastUpdated = new Date().toISOString();
         fileInDb.remarks = ''; // Clear old remarks
+        console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" marked as processing (re-imported).`);
         hasDbChanged = true;
       }
     }
@@ -98,10 +96,10 @@ async function pollDirectories() {
     for (const file of db.fileStatuses) {
         if (file.status === 'processing') {
             if (!filesInImportSet.has(file.name) && !filesInFailedSet.has(file.name)) {
-                console.log(`[Polling] Pass 3: File ${file.name} is no longer in import/failed. Marking as published.`);
                 file.status = 'published';
                 file.remarks = 'File processed successfully.';
                 file.lastUpdated = new Date().toISOString();
+                console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" marked as published.`);
                 hasDbChanged = true;
             }
         }
@@ -116,17 +114,14 @@ async function pollDirectories() {
     console.error('[Polling] An error occurred during the poll:', error);
   } finally {
     isPolling = false;
-    console.log('[Polling] Directory scan finished.');
   }
 }
 
 async function cleanupJob() {
   if (isCleaning) {
-    console.log('[Cleanup] Previous job still running. Skipping.');
     return;
   }
   isCleaning = true;
-  console.log('[Cleanup] Starting cleanup job...');
 
   try {
     const db = await readDb();
@@ -152,9 +147,9 @@ async function cleanupJob() {
           if (file.status === 'processing') {
             const lastUpdated = new Date(file.lastUpdated);
             if (now.getTime() - lastUpdated.getTime() > timeoutMs) {
-              console.log(`[Cleanup] Flagging file as timed-out: ${file.name}`);
               file.status = 'timed-out';
               file.lastUpdated = now.toISOString();
+              console.log(`[${new Date().toISOString()}] LOG: Status Change - "${file.name}" marked as timed-out.`);
               hasDbChanged = true;
             }
           }
@@ -170,7 +165,7 @@ async function cleanupJob() {
             const lastUpdated = new Date(file.lastUpdated);
             const shouldKeep = now.getTime() - lastUpdated.getTime() <= statusMaxAgeMs;
             if (!shouldKeep) {
-                console.log(`[Cleanup] Removing old status entry from dashboard: ${file.name}`);
+                 console.log(`[${new Date().toISOString()}] LOG: Removing old status entry from dashboard: ${file.name}`);
             }
             return shouldKeep;
         });
@@ -196,7 +191,7 @@ async function cleanupJob() {
                         const fileCreationTime = stats.birthtime; // Use creation time
                         if (now.getTime() - fileCreationTime.getTime() > fileMaxAgeMs) {
                             await fs.unlink(filePath);
-                            console.log(`[Cleanup] Deleting old file from failed directory (older than ${cleanupSettings.files.value} ${cleanupSettings.files.unit}): ${fileName}`);
+                            console.log(`[${new Date().toISOString()}] LOG: File Deletion - Deleted old file from failed directory: ${fileName}`);
                         }
                     } catch (statError: any) {
                          if (statError.code !== 'ENOENT') {
@@ -214,7 +209,6 @@ async function cleanupJob() {
 
 
     if (hasDbChanged || db.fileStatuses.length !== originalFileCount) {
-      console.log('[Cleanup] Database has changed, writing updates.');
       await writeDb(db);
     }
 
@@ -222,7 +216,6 @@ async function cleanupJob() {
     console.error('[Cleanup] An error occurred during the cleanup job:', error);
   } finally {
     isCleaning = false;
-    console.log('[Cleanup] Cleanup job finished.');
   }
 }
 
@@ -261,5 +254,6 @@ async function initializePollingService() {
         console.error("[Service] Failed to start services:", error);
     }
 })();
+
 
 
