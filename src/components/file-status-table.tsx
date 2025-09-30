@@ -53,8 +53,8 @@ export function FileStatusTable({ files, onRetry, onRename, isReadOnly = false }
           <TableHeader>
             <TableRow>
               <TableHead className="w-[35%]">File Name</TableHead>
-              <TableHead>Source</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Remarks</TableHead>
               <TableHead>Last Updated</TableHead>
               <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
@@ -79,15 +79,16 @@ export function FileStatusTable({ files, onRetry, onRename, isReadOnly = false }
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>{file.name}</p>
-                          {file.remarks && <p className="text-xs text-red-400 mt-1">{file.remarks}</p>}
                         </TooltipContent>
                       </Tooltip>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{file.source}</TableCell>
                     <TableCell>
                       <Badge className={`${getStatusClasses(file.status)} capitalize transition-colors duration-500`}>
                         {file.status}
                       </Badge>
+                    </TableCell>
+                     <TableCell className="text-muted-foreground max-w-xs truncate">
+                      {file.remarks}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDistanceToNow(new Date(file.lastUpdated), { addSuffix: true })}
@@ -134,7 +135,5 @@ export function FileStatusTable({ files, onRetry, onRename, isReadOnly = false }
     </TooltipProvider>
   );
 }
-
-    
 
     

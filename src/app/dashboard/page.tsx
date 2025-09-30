@@ -122,10 +122,7 @@ export default function DashboardPage() {
   const filteredFiles = useMemo(() => {
     return files
       .filter(file => statusFilter === 'all' || file.status === statusFilter)
-      .filter(file => 
-        file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        file.source.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      .filter(file => file.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [files, statusFilter, searchTerm]);
 
   const statusCounts = useMemo(() => {
@@ -213,7 +210,7 @@ export default function DashboardPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by file name or source..."
+                placeholder="Search by file name..."
                 className="pl-10"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -270,3 +267,5 @@ export default function DashboardPage() {
     </motion.div>
   );
 }
+
+    

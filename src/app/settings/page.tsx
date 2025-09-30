@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MonitoredPath, MonitoredPaths, User, CleanupSettings } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info } from "lucide-react";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -31,7 +31,9 @@ import {
     addMonitoredExtension,
     removeMonitoredExtension,
     updateCleanupSettings,
-    testPath
+    testPath,
+    addFailureRemark,
+    removeFailureRemark
 } from "@/lib/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -75,6 +77,9 @@ export default function SettingsPage() {
       files: { enabled: false, value: '30', unit: 'days'},
       timeout: { enabled: true, value: '24', unit: 'hours'}
   })
+  
+  const [failureRemarks, setFailureRemarks] = useState<string[]>([]);
+  const [newFailureRemark, setNewFailureRemark] = useState('');
 
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -103,6 +108,7 @@ export default function SettingsPage() {
         setPaths(db.monitoredPaths);
         setExtensions(db.monitoredExtensions);
         setCleanupSettings(db.cleanupSettings);
+        setFailureRemarks(db.failureRemarks || []);
     }
     fetchData();
   }, [])
@@ -181,6 +187,31 @@ export default function SettingsPage() {
         toast({ title: "Extension Removed", description: `Successfully removed ".${ext}" from monitored extensions.`, variant: "destructive" });
     });
   };
+  
+    const handleAddFailureRemark = (e: React.FormEvent) => {
+    e.preventDefault();
+    const remark = newFailureRemark.trim();
+    if (remark === '') return;
+    if (failureRemarks.includes(remark)) {
+        toast({ title: "Duplicate Remark", description: `This failure remark already exists.`, variant: "destructive" });
+        return;
+    }
+     startTransition(async () => {
+        await addFailureRemark(remark);
+        setFailureRemarks(prev => [...prev, remark]);
+        setNewFailureRemark('');
+        toast({ title: "Remark Added", description: `Successfully added new failure remark.`});
+    });
+  };
+
+  const handleRemoveFailureRemark = (remark: string) => {
+    startTransition(async () => {
+        await removeFailureRemark(remark);
+        setFailureRemarks(prev => prev.filter(r => r !== remark));
+        toast({ title: "Remark Removed", description: `Successfully removed failure remark.`, variant: "destructive" });
+    });
+  };
+
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -386,6 +417,62 @@ export default function SettingsPage() {
             </div>
         </CardContent>
       </Card>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Failure Reason Management</CardTitle>
+          <CardDescription>Configure the predefined reasons for file processing failures.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleAddFailureRemark} className="flex gap-4 mb-4">
+            <div className="flex-1 space-y-2">
+                <Label htmlFor="new-failure-remark">New Remark</Label>
+                <Input
+                id="new-failure-remark"
+                placeholder="e.g., Placeholder does not exist"
+                value={newFailureRemark}
+                onChange={(e) => setNewFailureRemark(e.target.value)}
+                disabled={isPending}
+                />
+            </div>
+            <div className="self-end">
+              <Button type="submit" className="w-full md:w-auto" disabled={isPending}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Add Remark
+              </Button>
+            </div>
+          </form>
+
+          <div className="space-y-2 rounded-lg border p-2">
+            <AnimatePresence>
+                {failureRemarks.length > 0 ? (
+                     failureRemarks.map(remark => (
+                        <motion.div
+                            key={remark}
+                            layout
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.3 }}
+                            className="flex items-center justify-between rounded-md p-2 hover:bg-muted/50"
+                        >
+                            <div className="flex items-center gap-3">
+                                <MessageSquareWarning className="h-4 w-4 text-muted-foreground"/>
+                                <p className="font-medium text-sm">{remark}</p>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={() => handleRemoveFailureRemark(remark)} disabled={isPending}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                        </motion.div>
+                    ))
+                ) : (
+                    <div className="text-center text-muted-foreground p-4">No failure remarks configured.</div>
+                )}
+            </AnimatePresence>
+          </div>
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardHeader>
@@ -713,3 +800,5 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
+
+    

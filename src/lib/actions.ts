@@ -214,6 +214,28 @@ export async function removeMonitoredExtension(extension: string) {
     revalidatePath('/settings');
 }
 
+export async function addFailureRemark(remark: string) {
+    const db = await readDb();
+    if (!db.failureRemarks) {
+        db.failureRemarks = [];
+    }
+    if (!db.failureRemarks.includes(remark)) {
+        db.failureRemarks.push(remark);
+        await writeDb(db);
+        revalidatePath('/settings');
+    }
+}
+
+export async function removeFailureRemark(remark: string) {
+    const db = await readDb();
+    if (db.failureRemarks) {
+        db.failureRemarks = db.failureRemarks.filter(r => r !== remark);
+        await writeDb(db);
+        revalidatePath('/settings');
+    }
+}
+
+
 export async function updateCleanupSettings(settings: CleanupSettings) {
     const db = await readDb();
     db.cleanupSettings = settings;
@@ -301,3 +323,5 @@ export async function updateFileRemarks(filePath: string, remarks: string) {
          console.log(`Could not find file ${fileName} to update remarks.`);
     }
 }
+
+    
