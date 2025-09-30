@@ -10,6 +10,16 @@ import { authenticator } from 'otplib';
 import qrcode from 'qrcode';
 
 
+export async function validateUserCredentials(username: string, password: string):Promise<{ success: boolean; user?: User }> {
+  const db = await readDb();
+  const user = db.users.find(u => u.username === username && u.password === password);
+  if (user) {
+    return { success: true, user: user };
+  }
+  return { success: false };
+}
+
+
 export async function generateTwoFactorSecretForUser(userId: string, username: string, issuer: string) {
   const db = await readDb();
   const user = db.users.find(u => u.id === userId);

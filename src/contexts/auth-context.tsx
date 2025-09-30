@@ -4,7 +4,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { User } from '@/types';
 import { readDb } from '@/lib/db';
-import { addUser as addUserAction, removeUser as removeUserAction, updateUserPassword as updateUserPasswordAction, updateUser as updateUserAction, verifyTwoFactorToken } from '@/lib/actions';
+import { addUser as addUserAction, removeUser as removeUserAction, updateUserPassword as updateUserPasswordAction, updateUser as updateUserAction, verifyTwoFactorToken, validateUserCredentials } from '@/lib/actions';
 
 
 const CURRENT_USER_STORAGE_KEY = 'file-tracker-user';
@@ -68,9 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUsers]);
 
   const login = async (username: string, password: string): Promise<{ success: boolean; twoFactorRequired: boolean; requiresTwoFactorSetup: boolean; user?: User }> => {
-    const db = await readDb();
-    const userToLogin = db.users.find(u => u.username === username && u.password === password);
-    if (userToLogin) {
+    const result = await validateUserCredentials(username, password);
+    
+    if (result.success && result.user) {
+      const userToLogin = result.user;
       if (userToLogin.twoFactorRequired) {
         const requiresSetup = !userToLogin.twoFactorSecret;
         return { success: true, twoFactorRequired: true, requiresTwoFactorSetup: requiresSetup, user: userToLogin };
@@ -79,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(userToStore));
         setUser(userToStore);
         await refreshUsers();
-        return { success: true, twoFactorRequired: false, requiresTwoFactorSetup: false };
+        return { success: true, twoFactorRequired: false, requiresTwoFactorSetup: false, user: userToLogin };
       }
     }
     return { success: false, twoFactorRequired: false, requiresTwoFactorSetup: false };
