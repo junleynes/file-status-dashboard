@@ -87,7 +87,7 @@ export function FileStatusTable({ files, onRetry, onRename, isReadOnly = false }
                         {file.status}
                       </Badge>
                     </TableCell>
-                     <TableCell className="text-muted-foreground max-w-xs truncate">
+                     <TableCell className="text-muted-foreground whitespace-normal">
                       {file.remarks}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -135,5 +135,3 @@ export function FileStatusTable({ files, onRetry, onRename, isReadOnly = false }
     </TooltipProvider>
   );
 }
-
-    
