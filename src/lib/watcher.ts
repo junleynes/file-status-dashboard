@@ -99,7 +99,7 @@ async function pollDirectories() {
                 file.status = 'published';
                 file.remarks = 'File processed successfully.';
                 file.lastUpdated = new Date().toISOString();
-                console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" marked as published.`);
+                console.log(`[${new Date().toISOString()}] LOG: Status Change - "${file.name}" marked as published.`);
                 hasDbChanged = true;
             }
         }
@@ -254,6 +254,4 @@ async function initializePollingService() {
         console.error("[Service] Failed to start services:", error);
     }
 })();
-
-
 
