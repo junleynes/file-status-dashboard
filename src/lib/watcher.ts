@@ -10,161 +10,90 @@ import {
 } from "./actions";
 import * as path from "path";
 import * as fs from "fs/promises";
-import type { Database } from "../types";
-
-// --- State and Configuration ---
+import type { Database, FileStatus } from "../types";
 
 const timers: Map<string, NodeJS.Timeout> = new Map();
 
-interface FileEvent {
-  eventType: 'add' | 'unlink';
-  filePath: string;
-}
-
-let eventQueue: FileEvent[] = [];
-let isProcessing = false;
-
-// --- Core Event Processor ---
-
-async function processQueue() {
-  if (isProcessing || eventQueue.length === 0) {
-    return;
-  }
-  isProcessing = true;
-  const event = eventQueue.shift();
-
-  if (event) {
-    try {
-      console.log(`[Queue] Processing event: ${event.eventType} for ${event.filePath}`);
-      const db = await readDb();
-      const importPath = db.monitoredPaths.import.path;
-      const failedPath = db.monitoredPaths.failed.path;
-
-      if (event.eventType === 'add') {
-        if (path.dirname(event.filePath) === failedPath) {
-          await handleFailedAdd(event.filePath);
-        } else if (path.dirname(event.filePath) === importPath) {
-          await handleImportAdd(event.filePath);
-        }
-      } else if (event.eventType === 'unlink') {
-        if (path.dirname(event.filePath) === importPath) {
-          await handleImportUnlink(event.filePath);
-        }
-      }
-    } catch (error) {
-      console.error(`[Queue] Error processing event for ${event.filePath}:`, error);
-    }
-  }
-
-  isProcessing = false;
-  // Immediately check for the next item
-  process.nextTick(processQueue);
-}
-
-function enqueueEvent(eventType: 'add' | 'unlink', filePath: string, delay: number = 0) {
-    const execute = () => {
-        // Prevent duplicate events from being added to the queue
-        if (!eventQueue.some(e => e.filePath === filePath && e.eventType === eventType)) {
-            console.log(`[Queue] Enqueueing event: ${eventType} for ${filePath}`);
-            eventQueue.push({ eventType, filePath });
-            // Start processing if not already started
-            if (!isProcessing) {
-                process.nextTick(processQueue);
-            }
-        } else {
-            console.log(`[Queue] Duplicate event for ${filePath} (${eventType}) ignored.`);
-        }
-    };
-
-    if (delay > 0) {
-        setTimeout(execute, delay);
-    } else {
-        execute();
-    }
-}
-
-
 // --- Event-Specific Handlers ---
 
-async function handleImportAdd(filePath: string) {
-  console.log(`[Handler] New file in import: ${filePath}`);
-  await addFileStatus(filePath, "processing");
-  
-  const fileKey = path.basename(filePath);
-  // Clear any existing timer for this file, just in case
-  if (timers.has(fileKey)) {
-    clearTimeout(timers.get(fileKey)!);
-  }
-  
-  const db = await readDb();
-  const timeoutMs = getTimeoutMs(db);
-  if (timeoutMs > 0) {
-    const t = setTimeout(async () => {
-      try {
-        // Check if the file still exists in the import path before timing out
-        await fs.access(filePath); 
-        console.log(`[Handler] Timed out: ${filePath}`);
-        await updateFileStatus(filePath, "timed-out");
-        timers.delete(fileKey);
-      } catch {
-        // File no longer exists, so don't mark as timed-out. It was likely processed.
-        console.log(`[Handler] Timeout for ${fileKey} cancelled, file no longer exists.`);
-      }
-    }, timeoutMs);
-    timers.set(fileKey, t);
-    console.log(`[Handler] Timeout set for ${fileKey} in ${timeoutMs}ms.`);
-  }
+async function handleFileAdd(filePath: string, db: Database) {
+    const importPath = path.resolve(db.monitoredPaths.import.path);
+    const failedPath = path.resolve(db.monitoredPaths.failed.path);
+    const dir = path.dirname(filePath);
+
+    if (dir === importPath) {
+        console.log(`[Handler] New file in import: ${filePath}`);
+        await addFileStatus(filePath, "processing");
+        startTimeout(filePath, db);
+    } else if (dir === failedPath) {
+        console.log(`[Handler] File detected in failed: ${filePath}`);
+        clearTimeoutForFile(filePath);
+        await updateFileStatus(filePath, "failed");
+        const remarks = await getFailureRemark();
+        if (remarks) {
+            await updateFileRemarks(filePath, remarks);
+        }
+    }
 }
 
-async function handleFailedAdd(filePath: string) {
-  console.log(`[Handler] File detected in failed: ${filePath}`);
-  const fileKey = path.basename(filePath);
+async function handleFileUnlink(filePath: string, db: Database) {
+    const importPath = path.resolve(db.monitoredPaths.import.path);
+    const dir = path.dirname(filePath);
 
-  // Clear any timeout timer, as the file has reached a final (failed) state
-  if (timers.has(fileKey)) {
-    clearTimeout(timers.get(fileKey)!);
-    timers.delete(fileKey);
-    console.log(`[Handler] Cleared timeout for ${fileKey} as it has failed.`);
-  }
+    if (dir === importPath) {
+        console.log(`[Handler] File removed from import: ${filePath}`);
+        const fileKey = path.basename(filePath);
 
-  await updateFileStatus(filePath, "failed");
-  const remarks = await getFailureRemark();
-  if (remarks) {
-    await updateFileRemarks(filePath, remarks);
-  }
-}
+        // It's gone from import, so the timeout is no longer needed.
+        clearTimeoutForFile(filePath);
 
+        // IMPORTANT: We need to check if the file still has 'processing' status.
+        // If it was moved to 'failed', its status would have already been changed by the 'add' event in the failed folder.
+        // This check prevents the race condition.
+        const currentDb = await readDb();
+        const fileStatus = currentDb.fileStatuses.find(f => f.name === fileKey);
 
-async function handleImportUnlink(filePath: string) {
-    console.log(`[Handler] File removed from import: ${filePath}`);
-    const fileKey = path.basename(filePath);
-    const db = await readDb();
-    
-    // To prevent the race condition, explicitly check if the file now exists in the failed directory.
-    const potentialFailedPath = path.join(db.monitoredPaths.failed.path, fileKey);
-    try {
-        await fs.access(potentialFailedPath);
-        // If fs.access succeeds, the file exists in the 'failed' folder.
-        // This means it was a failure move. We should NOT mark it as published.
-        // The 'handleFailedAdd' function will correctly set the status to 'failed'.
-        console.log(`[Handler] Unlink for ${fileKey} ignored, file found in failed directory. Awaiting 'failed' status update.`);
-    } catch (error) {
-        // If fs.access throws an error (e.g., ENOENT), the file does NOT exist in 'failed'.
-        // This means it was a successful processing and deletion. We can now safely mark it as 'published'.
-        console.log(`[Handler] File ${fileKey} not in failed directory. Marking as published.`);
-        await updateFileStatus(filePath, "published");
-    } finally {
-        // Whether it was published or failed, the file is no longer in 'import', so the timeout is irrelevant.
-        if (timers.has(fileKey)) {
-            clearTimeout(timers.get(fileKey)!);
-            timers.delete(fileKey);
-            console.log(`[Handler] Cleared timeout for processed file ${fileKey}.`);
+        if (fileStatus && fileStatus.status === 'processing') {
+             console.log(`[Handler] File ${fileKey} is still in processing state. Marking as published.`);
+             await updateFileStatus(filePath, "published");
+        } else {
+             console.log(`[Handler] File ${fileKey} was not in processing state. Unlink action ignored.`);
         }
     }
 }
 
 
 // --- Utility Functions ---
+
+function startTimeout(filePath: string, db: Database) {
+    const fileKey = path.basename(filePath);
+    clearTimeoutForFile(filePath); // Clear existing timer just in case
+
+    const timeoutMs = getTimeoutMs(db);
+    if (timeoutMs > 0) {
+        const t = setTimeout(async () => {
+            try {
+                await fs.access(filePath);
+                console.log(`[Timeout] File still exists, marking as timed-out: ${filePath}`);
+                await updateFileStatus(filePath, "timed-out");
+                timers.delete(fileKey);
+            } catch {
+                console.log(`[Timeout] File no longer exists, timeout for ${fileKey} cancelled.`);
+            }
+        }, timeoutMs);
+        timers.set(fileKey, t);
+        console.log(`[Timeout] Set for ${fileKey} in ${timeoutMs}ms.`);
+    }
+}
+
+function clearTimeoutForFile(filePath: string) {
+    const fileKey = path.basename(filePath);
+    if (timers.has(fileKey)) {
+        clearTimeout(timers.get(fileKey)!);
+        timers.delete(fileKey);
+        console.log(`[Timeout] Cleared for ${fileKey}.`);
+    }
+}
 
 async function getFailureRemark(): Promise<string> {
   const db = await readDb();
@@ -203,43 +132,38 @@ async function initializeWatcher() {
       return;
   }
 
+  const pathsToWatch = [resolvedImportPath, resolvedFailedPath];
+
   const watcherOptions: chokidar.WatchOptions = {
     persistent: true,
     ignoreInitial: true,
-    awaitWriteFinish: { stabilityThreshold: 3000, pollInterval: 100 },
+    awaitWriteFinish: { stabilityThreshold: 5000, pollInterval: 100 },
     usePolling: true,
     interval: 1000,
+    depth: 0, // Only watch the immediate directory, not subfolders
   };
   
-  const mainWatcher = chokidar.watch(resolvedImportPath, watcherOptions);
+  const watcher = chokidar.watch(pathsToWatch, watcherOptions);
   
-  mainWatcher
-    .on("add", (filePath) => {
-        if (path.dirname(filePath) === resolvedImportPath) {
-            enqueueEvent('add', filePath);
-        }
-    })
-    .on("unlink", (filePath) => {
-        if (path.dirname(filePath) === resolvedImportPath) {
-            enqueueEvent('unlink', filePath, 500); // Delay unlink slightly
-        }
-    })
-    .on("error", (err) => console.error("[Watcher] Main Watcher Error:", err))
-    .on("ready", () => console.log(`[Watcher] Import Watcher ready. Watching: ${resolvedImportPath}`));
+  console.log(`[Watcher] Now watching paths: ${pathsToWatch.join(', ')}`);
 
-  const failedWatcher = chokidar.watch(resolvedFailedPath, {
-    persistent: true,
-    ignoreInitial: true,
-    awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 100 },
-    usePolling: true,
-    interval: 1000,
-    depth: 0,
-  });
-
-  failedWatcher
-    .on("add", (filePath) => enqueueEvent('add', filePath)) // Enqueue instantly
-    .on("error", (err) => console.error("[Watcher] Failed Watcher Error:", err))
-    .on("ready", () => console.log(`[Watcher] Failed Watcher ready. Watching: ${resolvedFailedPath}`));
+  watcher
+    .on("add", async (filePath) => {
+        const db = await readDb();
+        if (db.monitoredExtensions.length > 0 && !db.monitoredExtensions.some(ext => filePath.endsWith(`.${ext}`))) {
+            return; // Ignore files that don't match the monitored extensions
+        }
+        await handleFileAdd(filePath, db);
+    })
+    .on("unlink", async (filePath) => {
+        const db = await readDb();
+        if (db.monitoredExtensions.length > 0 && !db.monitoredExtensions.some(ext => filePath.endsWith(`.${ext}`))) {
+            return;
+        }
+        await handleFileUnlink(filePath, db);
+    })
+    .on("error", (err) => console.error("[Watcher] Watcher Error:", err))
+    .on("ready", () => console.log(`[Watcher] Watcher is ready.`));
 }
 
 // Start the service
