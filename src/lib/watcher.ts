@@ -13,6 +13,7 @@ import * as fs from "fs/promises";
 import type { Database, FileStatus } from "../types";
 
 const timers: Map<string, NodeJS.Timeout> = new Map();
+const CLEANUP_INTERVAL = 15000; // 15 seconds
 
 // --- Event-Specific Handlers ---
 
@@ -36,34 +37,43 @@ async function handleFileAdd(filePath: string, db: Database) {
     }
 }
 
-async function handleFileUnlink(filePath: string, db: Database) {
+// --- Cleanup & Utility Functions ---
+
+async function cleanupJob() {
+    console.log('[Cleanup] Running cleanup job...');
+    const db = await readDb();
     const importPath = path.resolve(db.monitoredPaths.import.path);
-    const dir = path.dirname(filePath);
+    
+    // Find files that are still 'processing'.
+    const processingFiles = db.fileStatuses.filter(f => f.status === 'processing');
 
-    if (dir === importPath) {
-        console.log(`[Handler] File removed from import: ${filePath}`);
-        const fileKey = path.basename(filePath);
+    if (processingFiles.length === 0) {
+        console.log('[Cleanup] No files in processing state. Job complete.');
+        return;
+    }
 
-        // It's gone from import, so the timeout is no longer needed.
-        clearTimeoutForFile(filePath);
+    console.log(`[Cleanup] Found ${processingFiles.length} file(s) in processing state to verify.`);
 
-        // IMPORTANT: We need to check if the file still has 'processing' status.
-        // If it was moved to 'failed', its status would have already been changed by the 'add' event in the failed folder.
-        // This check prevents the race condition.
-        const currentDb = await readDb();
-        const fileStatus = currentDb.fileStatuses.find(f => f.name === fileKey);
-
-        if (fileStatus && fileStatus.status === 'processing') {
-             console.log(`[Handler] File ${fileKey} is still in processing state. Marking as published.`);
-             await updateFileStatus(filePath, "published");
-        } else {
-             console.log(`[Handler] File ${fileKey} was not in processing state. Unlink action ignored.`);
+    for (const file of processingFiles) {
+        const filePathInImport = path.join(importPath, file.name);
+        try {
+            // Check if the file still exists in the import directory.
+            await fs.access(filePathInImport);
+            // If it exists, it's still legitimately processing. Do nothing.
+            console.log(`[Cleanup] File "${file.name}" is still in import folder. Status is correct.`);
+        } catch (error: any) {
+            if (error.code === 'ENOENT') {
+                // The file does NOT exist in the import folder anymore.
+                // We can now safely assume it has been processed and mark it as 'published'.
+                // This catches cases where the 'unlink' event was missed.
+                console.log(`[Cleanup] File "${file.name}" no longer in import. Updating status to 'published'.`);
+                await updateFileStatus(filePathInImport, "published");
+            }
         }
     }
+     console.log('[Cleanup] Cleanup job finished.');
 }
 
-
-// --- Utility Functions ---
 
 function startTimeout(filePath: string, db: Database) {
     const fileKey = path.basename(filePath);
@@ -155,15 +165,13 @@ async function initializeWatcher() {
         }
         await handleFileAdd(filePath, db);
     })
-    .on("unlink", async (filePath) => {
-        const db = await readDb();
-        if (db.monitoredExtensions.length > 0 && !db.monitoredExtensions.some(ext => filePath.endsWith(`.${ext}`))) {
-            return;
-        }
-        await handleFileUnlink(filePath, db);
-    })
     .on("error", (err) => console.error("[Watcher] Watcher Error:", err))
-    .on("ready", () => console.log(`[Watcher] Watcher is ready.`));
+    .on("ready", () => {
+        console.log(`[Watcher] Watcher is ready.`);
+        // Start the periodic cleanup job once the watcher is ready.
+        setInterval(cleanupJob, CLEANUP_INTERVAL);
+        console.log(`[Cleanup] Periodic cleanup job scheduled to run every ${CLEANUP_INTERVAL / 1000} seconds.`);
+    });
 }
 
 // Start the service
@@ -175,3 +183,4 @@ async function initializeWatcher() {
         console.error("[Watcher] Failed to start watcher service:", error);
     }
 })();
+
