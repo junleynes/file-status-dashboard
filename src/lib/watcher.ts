@@ -7,7 +7,9 @@ import * as fs from 'fs/promises';
 import type { Database, FileStatus } from '../types';
 
 const POLLING_INTERVAL = 5000; // 5 seconds
+const CLEANUP_INTERVAL = 60000; // 1 minute
 let isPolling = false;
+let isCleaning = false;
 
 async function getFailureRemark(): Promise<string> {
   const db = await readDb();
@@ -36,9 +38,13 @@ async function pollDirectories() {
     
     let hasDbChanged = false;
 
-    // --- Pass 1: Handle failed files (Highest Priority) ---
+    const filesInImport = await fs.readdir(importPath).catch(() => [] as string[]);
     const filesInFailed = await fs.readdir(failedPath).catch(() => [] as string[]);
+    const filesInImportSet = new Set(filesInImport);
+    const filesInFailedSet = new Set(filesInFailed);
     const failureRemark = await getFailureRemark();
+
+    // --- Pass 1: Handle failed files (Highest Priority) ---
     for (const fileName of filesInFailed) {
       const fileInDb = db.fileStatuses.find(f => f.name === fileName);
       if (fileInDb && fileInDb.status !== 'failed') {
@@ -51,7 +57,6 @@ async function pollDirectories() {
     }
 
     // --- Pass 2: Handle new and re-processed files in Import ---
-    const filesInImport = await fs.readdir(importPath).catch(() => [] as string[]);
     for (const fileName of filesInImport) {
        if (monitoredExtensions.size > 0 && !monitoredExtensions.has(path.extname(fileName).toLowerCase())) {
             continue; // Skip files that are not monitored
@@ -81,14 +86,11 @@ async function pollDirectories() {
     }
     
     // --- Pass 3: Check for published files ---
-    const filesInImportSet = new Set(filesInImport);
+    // A file is "published" if it was "processing" and is now in neither the import nor the failed folder.
     for (const file of db.fileStatuses) {
-        // Only check files that are currently "processing"
         if (file.status === 'processing') {
-            // If it's not in the import folder anymore, it must be published.
-            // We know it's not 'failed' because Pass 1 runs first.
-            if (!filesInImportSet.has(file.name)) {
-                console.log(`[Polling] Pass 3: File ${file.name} is no longer in import. Marking as published.`);
+            if (!filesInImportSet.has(file.name) && !filesInFailedSet.has(file.name)) {
+                console.log(`[Polling] Pass 3: File ${file.name} is no longer in import/failed. Marking as published.`);
                 file.status = 'published';
                 file.lastUpdated = new Date().toISOString();
                 hasDbChanged = true;
@@ -110,28 +112,127 @@ async function pollDirectories() {
   }
 }
 
+async function cleanupJob() {
+  if (isCleaning) {
+    console.log('[Cleanup] Previous job still running. Skipping.');
+    return;
+  }
+  isCleaning = true;
+  console.log('[Cleanup] Starting cleanup job...');
+
+  try {
+    const db = await readDb();
+    const { cleanupSettings, fileStatuses, monitoredPaths } = db;
+    const now = new Date();
+    let hasDbChanged = false;
+
+    // Helper to convert rule to milliseconds
+    const getMilliseconds = (value: string, unit: 'hours' | 'days') => {
+        const numValue = parseInt(value, 10);
+        if (unit === 'hours') return numValue * 60 * 60 * 1000;
+        if (unit === 'days') return numValue * 24 * 60 * 60 * 1000;
+        return 0;
+    };
+    
+    const originalFileCount = fileStatuses.length;
+
+    // 1. Flag timed-out files
+    if (cleanupSettings.timeout.enabled) {
+      const timeoutMs = getMilliseconds(cleanupSettings.timeout.value, cleanupSettings.timeout.unit);
+      for (const file of fileStatuses) {
+        if (file.status === 'processing') {
+          const lastUpdated = new Date(file.lastUpdated);
+          if (now.getTime() - lastUpdated.getTime() > timeoutMs) {
+            console.log(`[Cleanup] Flagging file as timed-out: ${file.name}`);
+            file.status = 'timed-out';
+            file.lastUpdated = now.toISOString();
+            hasDbChanged = true;
+          }
+        }
+      }
+    }
+
+    // 2. Clear old status entries
+    if (cleanupSettings.status.enabled) {
+      const statusMaxAgeMs = getMilliseconds(cleanupSettings.status.value, cleanupSettings.status.unit);
+      const newFileStatuses = fileStatuses.filter(file => {
+          const lastUpdated = new Date(file.lastUpdated);
+          const shouldKeep = now.getTime() - lastUpdated.getTime() <= statusMaxAgeMs;
+          if (!shouldKeep) {
+              console.log(`[Cleanup] Removing old status entry from dashboard: ${file.name}`);
+          }
+          return shouldKeep;
+      });
+      if (newFileStatuses.length !== fileStatuses.length) {
+          db.fileStatuses = newFileStatuses;
+          hasDbChanged = true;
+      }
+    }
+    
+    // 3. Clear old physical files
+    if (cleanupSettings.files.enabled) {
+        const fileMaxAgeMs = getMilliseconds(cleanupSettings.files.value, cleanupSettings.files.unit);
+        // We only delete from the failed path for safety
+        const failedPath = monitoredPaths.failed.path;
+        
+        // Find files in DB to get their `lastUpdated` timestamp
+        for (const file of fileStatuses) {
+            if (file.status === 'failed') { // Could be expanded to other statuses if needed
+                const lastUpdated = new Date(file.lastUpdated);
+                 if (now.getTime() - lastUpdated.getTime() > fileMaxAgeMs) {
+                    const filePath = path.join(failedPath, file.name);
+                    try {
+                        await fs.unlink(filePath);
+                        console.log(`[Cleanup] Deleting old file from failed directory: ${file.name}`);
+                        // Optionally remove it from the dashboard list as well, or let the status cleanup handle it
+                    } catch (error: any) {
+                        if (error.code !== 'ENOENT') { // Don't log error if file is already gone
+                             console.error(`[Cleanup] Error deleting file ${filePath}:`, error.message);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+    if (hasDbChanged || db.fileStatuses.length !== originalFileCount) {
+      console.log('[Cleanup] Database has changed, writing updates.');
+      await writeDb(db);
+    }
+
+  } catch (error) {
+    console.error('[Cleanup] An error occurred during the cleanup job:', error);
+  } finally {
+    isCleaning = false;
+    console.log('[Cleanup] Cleanup job finished.');
+  }
+}
+
 
 // --- Service Initialization ---
 async function initializePollingService() {
-  console.log('[Polling] Initializing polling service...');
+  console.log('[Service] Initializing polling and cleanup services...');
   const db = await readDb();
   const importPath = db.monitoredPaths.import.path;
   const failedPath = db.monitoredPaths.failed.path;
 
   if (!importPath || !failedPath) {
-    console.error("[Polling] Import or Failed paths are not configured. Polling service cannot start.");
+    console.error("[Service] Import or Failed paths are not configured. Services cannot start.");
     return;
   }
   
   try {
       await fs.access(importPath);
       await fs.access(failedPath);
-      console.log(`[Polling] Watching Import: ${importPath}`);
-      console.log(`[Polling] Watching Failed: ${failedPath}`);
+      console.log(`[Service] Watching Import: ${importPath}`);
+      console.log(`[Service] Watching Failed: ${failedPath}`);
       setInterval(pollDirectories, POLLING_INTERVAL);
-      console.log(`[Polling] Service started. Polling every ${POLLING_INTERVAL / 1000} seconds.`);
+      setInterval(cleanupJob, CLEANUP_INTERVAL);
+      console.log(`[Service] Polling started. Polling every ${POLLING_INTERVAL / 1000} seconds.`);
+      console.log(`[Service] Cleanup job started. Running every ${CLEANUP_INTERVAL / 1000} seconds.`);
   } catch(error: any) {
-       console.error(`[Polling] A monitored directory is not accessible. Please check paths in settings. Error: ${error.message}`);
+       console.error(`[Service] A monitored directory is not accessible. Please check paths in settings. Error: ${error.message}`);
   }
 }
 
@@ -140,6 +241,6 @@ async function initializePollingService() {
     try {
         await initializePollingService();
     } catch (error) {
-        console.error("[Polling] Failed to start polling service:", error);
+        console.error("[Service] Failed to start services:", error);
     }
 })();
