@@ -2,11 +2,6 @@
 'use server';
 
 import { readDb, writeDb } from './db';
-import {
-  addFileStatus,
-  updateFileStatus,
-  updateFileRemarks,
-} from './actions';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import type { Database, FileStatus } from '../types';
@@ -29,57 +24,74 @@ async function pollDirectories() {
 
   try {
     const db = await readDb();
-    const importPath = path.resolve(db.monitoredPaths.import.path);
-    const failedPath = path.resolve(db.monitoredPaths.failed.path);
+    const importPath = db.monitoredPaths.import.path;
+    const failedPath = db.monitoredPaths.failed.path;
     const monitoredExtensions = new Set(db.monitoredExtensions.map(ext => `.${ext}`));
 
-    const filesInDb = new Map(db.fileStatuses.map(f => [f.name, f]));
+    if (!importPath || !failedPath) {
+        console.error('[Polling] Monitored paths are not configured. Skipping poll.');
+        isPolling = false;
+        return;
+    }
+    
+    const dbFileMap = new Map(db.fileStatuses.map(f => [f.name, f]));
+    let hasDbChanged = false;
 
-    // --- Step 1: Scan the Failed directory ---
-    // This runs first, so if a file is moved from import to failed between polls,
-    // we'll mark it as failed correctly.
+    // --- Pass 1: Handle failed files ---
     const filesInFailed = await fs.readdir(failedPath).catch(() => [] as string[]);
+    const failureRemark = await getFailureRemark();
     for (const fileName of filesInFailed) {
-      const fileRecord = filesInDb.get(fileName);
-      if (!fileRecord || fileRecord.status !== 'failed') {
-        console.log(`[Polling] Detected file in failed: ${fileName}. Updating status.`);
-        const failureRemark = await getFailureRemark();
-        // This will either add or update the file status.
-        await addFileStatus(path.join(failedPath, fileName), 'failed');
-        await updateFileRemarks(path.join(failedPath, fileName), failureRemark);
+      const fileInDb = dbFileMap.get(fileName);
+      if (fileInDb && fileInDb.status !== 'failed') {
+        console.log(`[Polling] Updating status to 'failed' for: ${fileName}`);
+        fileInDb.status = 'failed';
+        fileInDb.remarks = failureRemark;
+        fileInDb.lastUpdated = new Date().toISOString();
+        hasDbChanged = true;
       }
     }
-    const filesInFailedSet = new Set(filesInFailed);
 
-    // --- Step 2: Scan the Import directory ---
+    // --- Pass 2: Handle new and processing files ---
     const filesInImport = await fs.readdir(importPath).catch(() => [] as string[]);
     for (const fileName of filesInImport) {
-        // Ignore files that don't match monitored extensions, if any are specified
-        if (monitoredExtensions.size > 0 && !monitoredExtensions.has(path.extname(fileName).toLowerCase())) {
+       if (monitoredExtensions.size > 0 && !monitoredExtensions.has(path.extname(fileName).toLowerCase())) {
             continue;
         }
-      const fileRecord = filesInDb.get(fileName);
-      if (!fileRecord) {
-        console.log(`[Polling] Detected new file in import: ${fileName}. Setting to processing.`);
-        await addFileStatus(path.join(importPath, fileName), 'processing');
+      if (!dbFileMap.has(fileName)) {
+        console.log(`[Polling] Detected new file: ${fileName}. Setting to processing.`);
+        const newFile: FileStatus = {
+          id: `file-${Date.now()}-${Math.random()}`,
+          name: fileName,
+          status: 'processing',
+          source: db.monitoredPaths.import.name,
+          lastUpdated: new Date().toISOString(),
+        };
+        db.fileStatuses.unshift(newFile);
+        dbFileMap.set(fileName, newFile); // Keep map in sync
+        hasDbChanged = true;
       }
     }
-    const filesInImportSet = new Set(filesInImport);
     
-    // --- Step 3: Check for Published or Timed-out files ---
-    // Re-read DB after potential updates
-    const updatedDb = await readDb(); 
-    for (const file of updatedDb.fileStatuses) {
+    // --- Pass 3: Check for published files ---
+    const filesInImportSet = new Set(filesInImport);
+    for (const file of db.fileStatuses) {
+        // Only check files that are "processing"
         if (file.status === 'processing') {
-            const fileIsInImport = filesInImportSet.has(file.name);
-            const fileIsInFailed = filesInFailedSet.has(file.name);
-
-            if (!fileIsInImport && !fileIsInFailed) {
-                // If it was processing but is now in neither directory, it must have been published.
-                console.log(`[Polling] File ${file.name} no longer in import/failed. Marking as published.`);
-                await updateFileStatus(path.join(importPath, file.name), 'published');
+            // If it's not in the import folder anymore... it must be published.
+            // We already handled the 'failed' case in Pass 1.
+            if (!filesInImportSet.has(file.name)) {
+                console.log(`[Polling] File ${file.name} is no longer in import. Marking as published.`);
+                file.status = 'published';
+                file.lastUpdated = new Date().toISOString();
+                hasDbChanged = true;
             }
         }
+    }
+
+    if (hasDbChanged) {
+        // Sort by date before writing
+        db.fileStatuses.sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
+        await writeDb(db);
     }
 
   } catch (error) {
@@ -89,6 +101,7 @@ async function pollDirectories() {
     console.log('[Polling] Directory scan finished.');
   }
 }
+
 
 // --- Service Initialization ---
 async function initializePollingService() {
