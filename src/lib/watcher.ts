@@ -139,20 +139,7 @@ async function handleImportUnlink(filePath: string) {
     console.log(`[Handler] File removed from import: ${filePath}`);
     const fileKey = path.basename(filePath);
     const db = await readDb();
-    const fileStatus = db.fileStatuses.find(f => f.name === fileKey);
-
-    // If the file's status in the DB is not 'processing', it means it has already been
-    // handled (e.g., set to 'failed' or 'timed-out'). We should not touch it.
-    if (!fileStatus || fileStatus.status !== 'processing') {
-        console.log(`[Handler] Unlink for ${fileKey} ignored, status is already '${fileStatus?.status}'.`);
-        // Still clear the timer if it exists, as the file is gone from import.
-        if (timers.has(fileKey)) {
-            clearTimeout(timers.get(fileKey)!);
-            timers.delete(fileKey);
-        }
-        return;
-    }
-
+    
     // To prevent the race condition, explicitly check if the file now exists in the failed directory.
     const potentialFailedPath = path.join(db.monitoredPaths.failed.path, fileKey);
     try {
@@ -222,14 +209,21 @@ async function initializeWatcher() {
     awaitWriteFinish: { stabilityThreshold: 3000, pollInterval: 100 },
     usePolling: true,
     interval: 1000,
-    ignored: (p: string) => path.resolve(p).startsWith(resolvedFailedPath),
   };
   
   const mainWatcher = chokidar.watch(resolvedImportPath, watcherOptions);
   
   mainWatcher
-    .on("add", (filePath) => enqueueEvent('add', filePath))
-    .on("unlink", (filePath) => enqueueEvent('unlink', filePath, 500)) // Delay unlink slightly to help ordering
+    .on("add", (filePath) => {
+        if (path.dirname(filePath) === resolvedImportPath) {
+            enqueueEvent('add', filePath);
+        }
+    })
+    .on("unlink", (filePath) => {
+        if (path.dirname(filePath) === resolvedImportPath) {
+            enqueueEvent('unlink', filePath, 500); // Delay unlink slightly
+        }
+    })
     .on("error", (err) => console.error("[Watcher] Main Watcher Error:", err))
     .on("ready", () => console.log(`[Watcher] Import Watcher ready. Watching: ${resolvedImportPath}`));
 
