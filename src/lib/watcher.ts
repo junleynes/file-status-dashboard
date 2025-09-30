@@ -136,28 +136,44 @@ async function handleFailedAdd(filePath: string) {
 
 
 async function handleImportUnlink(filePath: string) {
-  console.log(`[Handler] File removed from import: ${filePath}`);
-  const fileKey = path.basename(filePath);
+    console.log(`[Handler] File removed from import: ${filePath}`);
+    const fileKey = path.basename(filePath);
+    const db = await readDb();
+    const fileStatus = db.fileStatuses.find(f => f.name === fileKey);
 
-  // We are relying on the `add` to `failed` being processed first.
-  // This unlink handler's job is to catch the "success" case.
-  const currentDb = await readDb();
-  const file = currentDb.fileStatuses.find(f => f.name === fileKey);
-
-  // Only if the status is still 'processing' can we assume it was published successfully.
-  // If it had been moved to 'failed', its status would have been updated by `handleFailedAdd` first.
-  if (file && file.status === 'processing') {
-    console.log(`[Handler] File determined to be published: ${fileKey}`);
-    await updateFileStatus(filePath, "published");
-    
-    // Clean up the timeout timer as the file has been processed successfully
-    if (timers.has(fileKey)) {
-      clearTimeout(timers.get(fileKey)!);
-      timers.delete(fileKey);
+    // If the file's status in the DB is not 'processing', it means it has already been
+    // handled (e.g., set to 'failed' or 'timed-out'). We should not touch it.
+    if (!fileStatus || fileStatus.status !== 'processing') {
+        console.log(`[Handler] Unlink for ${fileKey} ignored, status is already '${fileStatus?.status}'.`);
+        // Still clear the timer if it exists, as the file is gone from import.
+        if (timers.has(fileKey)) {
+            clearTimeout(timers.get(fileKey)!);
+            timers.delete(fileKey);
+        }
+        return;
     }
-  } else {
-      console.log(`[Handler] Unlink for ${fileKey} ignored, status is already '${file?.status}'.`);
-  }
+
+    // To prevent the race condition, explicitly check if the file now exists in the failed directory.
+    const potentialFailedPath = path.join(db.monitoredPaths.failed.path, fileKey);
+    try {
+        await fs.access(potentialFailedPath);
+        // If fs.access succeeds, the file exists in the 'failed' folder.
+        // This means it was a failure move. We should NOT mark it as published.
+        // The 'handleFailedAdd' function will correctly set the status to 'failed'.
+        console.log(`[Handler] Unlink for ${fileKey} ignored, file found in failed directory. Awaiting 'failed' status update.`);
+    } catch (error) {
+        // If fs.access throws an error (e.g., ENOENT), the file does NOT exist in 'failed'.
+        // This means it was a successful processing and deletion. We can now safely mark it as 'published'.
+        console.log(`[Handler] File ${fileKey} not in failed directory. Marking as published.`);
+        await updateFileStatus(filePath, "published");
+    } finally {
+        // Whether it was published or failed, the file is no longer in 'import', so the timeout is irrelevant.
+        if (timers.has(fileKey)) {
+            clearTimeout(timers.get(fileKey)!);
+            timers.delete(fileKey);
+            console.log(`[Handler] Cleared timeout for processed file ${fileKey}.`);
+        }
+    }
 }
 
 
@@ -206,14 +222,14 @@ async function initializeWatcher() {
     awaitWriteFinish: { stabilityThreshold: 3000, pollInterval: 100 },
     usePolling: true,
     interval: 1000,
-    ignored: (p: string) => path.resolve(p) === resolvedFailedPath || p.includes(resolvedFailedPath + path.sep),
+    ignored: (p: string) => path.resolve(p).startsWith(resolvedFailedPath),
   };
   
   const mainWatcher = chokidar.watch(resolvedImportPath, watcherOptions);
   
   mainWatcher
     .on("add", (filePath) => enqueueEvent('add', filePath))
-    .on("unlink", (filePath) => enqueueEvent('unlink', filePath, 1500)) // Delay unlink to ensure 'add' to failed is processed first
+    .on("unlink", (filePath) => enqueueEvent('unlink', filePath, 500)) // Delay unlink slightly to help ordering
     .on("error", (err) => console.error("[Watcher] Main Watcher Error:", err))
     .on("ready", () => console.log(`[Watcher] Import Watcher ready. Watching: ${resolvedImportPath}`));
 
