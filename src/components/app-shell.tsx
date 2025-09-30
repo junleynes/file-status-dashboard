@@ -127,7 +127,7 @@ function ProfileDialog() {
             </div>
              <div className="space-y-2">
                 <Label>Email</Label>
-                <Input value={user?.email} disabled />
+                <Input value={user?.email ?? 'Not set'} disabled />
             </div>
         </div>
       </DialogContent>

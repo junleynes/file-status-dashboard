@@ -246,8 +246,8 @@ export default function SettingsPage() {
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUsername || !newUserName || !newUserEmail || !newUserPassword) {
-      toast({ title: "Missing User Information", description: "Please fill out all fields to add a user.", variant: "destructive" });
+    if (!newUsername || !newUserName || !newUserPassword) {
+      toast({ title: "Missing User Information", description: "Please fill out Username, Full Name, and Password.", variant: "destructive" });
       return;
     }
     startTransition(async () => {
@@ -269,7 +269,7 @@ export default function SettingsPage() {
             setNewUserPassword('');
             setNewUserRole('user');
         } else {
-            toast({ title: "Error", description: "A user with this username or email already exists.", variant: "destructive" });
+            toast({ title: "Error", description: "A user with this username already exists.", variant: "destructive" });
         }
     });
   };
@@ -467,7 +467,7 @@ export default function SettingsPage() {
                   <Input id="new-user-name" placeholder="John Doe" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} disabled={isPending} />
               </div>
               <div className="space-y-2">
-                  <Label htmlFor="new-user-email">Email</Label>
+                  <Label htmlFor="new-user-email">Email (Optional)</Label>
                   <Input id="new-user-email" type="email" placeholder="user@example.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} disabled={isPending} />
               </div>
                <div className="space-y-2">
@@ -515,7 +515,7 @@ export default function SettingsPage() {
                                 </Avatar>
                                 <div>
                                     <p className="font-medium text-sm">{u.name} <span className="text-xs text-muted-foreground">({u.role})</span></p>
-                                    <p className="text-xs text-muted-foreground">@{u.username} &middot; {u.email}</p>
+                                    <p className="text-xs text-muted-foreground">@{u.username} {u.email && `· ${u.email}`}</p>
                                 </div>
                             </div>
                             <div className="flex items-center gap-1">

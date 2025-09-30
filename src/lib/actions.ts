@@ -223,9 +223,11 @@ export async function addUser(newUser: User): Promise<{ success: boolean, messag
   if (userExists) {
     return { success: false, message: "A user with this username already exists." };
   }
-  const emailExists = db.users.some(u => u.email === newUser.email);
-  if (emailExists) {
-    return { success: false, message: "A user with this email already exists." };
+  if (newUser.email) {
+    const emailExists = db.users.some(u => u.email === newUser.email);
+    if (emailExists) {
+      return { success: false, message: "A user with this email already exists." };
+    }
   }
 
   const userToAdd: User = {
