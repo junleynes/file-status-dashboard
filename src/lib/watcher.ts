@@ -193,10 +193,10 @@ async function cleanupJob() {
                     const filePath = path.join(failedPath, fileName);
                     try {
                         const stats = await fs.stat(filePath);
-                        const lastModified = stats.mtime;
-                        if (now.getTime() - lastModified.getTime() > fileMaxAgeMs) {
+                        const fileCreationTime = stats.birthtime; // Use creation time
+                        if (now.getTime() - fileCreationTime.getTime() > fileMaxAgeMs) {
                             await fs.unlink(filePath);
-                            console.log(`[Cleanup] Deleting old file from failed directory: ${fileName}`);
+                            console.log(`[Cleanup] Deleting old file from failed directory (older than ${cleanupSettings.files.value} ${cleanupSettings.files.unit}): ${fileName}`);
                         }
                     } catch (statError: any) {
                          if (statError.code !== 'ENOENT') {
@@ -261,4 +261,5 @@ async function initializePollingService() {
         console.error("[Service] Failed to start services:", error);
     }
 })();
+
 
