@@ -883,7 +883,7 @@ export default function SettingsPage() {
                       )}
                     </div>
                     <div className="flex flex-col sm:flex-row gap-2">
-                        <Input id="favicon-upload" type="file" accept="image/x-icon,image/png,image/svg+xml" onChange={handleFaviconUpload} className="hidden" disabled={isPending} />
+                        <Input id="favicon-upload" type="file" accept="image/png, image/jpeg, image/svg+xml, image/x-icon" onChange={handleFaviconUpload} className="hidden" disabled={isPending} />
                         <Button asChild variant="outline" disabled={isPending}>
                             <label htmlFor="favicon-upload">
                                 <UploadCloud className="mr-2 h-4 w-4" />

@@ -20,7 +20,9 @@ export async function generateMetadata(): Promise<Metadata> {
     title: brandName,
     description: 'A custom application built with Firebase Studio.',
     icons: {
-        icon: favicon,
+      icon: favicon,
+      shortcut: favicon,
+      apple: favicon,
     }
   };
 }
@@ -55,5 +57,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-    
