@@ -64,7 +64,14 @@
       "unit": "hours"
     }
   },
-  "failureRemark": "Filename does not match bascode of placeholder, no placeholder create or contains media already."
+  "failureRemark": "Bascode mismatch, no placeholder, or media already exists.",
+  "smtpSettings": {
+    "host": "",
+    "port": 587,
+    "secure": false,
+    "auth": {
+      "user": "",
+      "pass": ""
+    }
+  }
 }
-
-    

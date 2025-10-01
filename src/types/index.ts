@@ -51,6 +51,16 @@ export type BrandingSettings = {
   footerText: string;
 }
 
+export type SmtpSettings = {
+    host: string;
+    port: number;
+    secure: boolean;
+    auth: {
+        user: string;
+        pass: string;
+    }
+}
+
 export type Database = {
     users: User[];
     branding: BrandingSettings;
@@ -59,6 +69,5 @@ export type Database = {
     fileStatuses: FileStatus[];
     cleanupSettings: CleanupSettings;
     failureRemark: string;
+    smtpSettings: SmtpSettings;
 }
-
-    

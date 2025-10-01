@@ -4,7 +4,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { User } from '@/types';
 import { readDb } from '@/lib/db';
-import { addUser as addUserAction, removeUser as removeUserAction, updateUserPassword as updateUserPasswordAction, updateUser as updateUserAction, verifyTwoFactorToken, validateUserCredentials } from '@/lib/actions';
+import { addUser as addUserAction, removeUser as removeUserAction, updateUser as updateUserAction, verifyTwoFactorToken, validateUserCredentials, sendPasswordResetEmail as sendPasswordResetEmailAction } from '@/lib/actions';
 
 
 const CURRENT_USER_STORAGE_KEY = 'file-tracker-user';
@@ -18,7 +18,6 @@ interface AuthContextType {
   logout: () => void;
   addUser: (user: User) => Promise<boolean>;
   removeUser: (userId: string) => Promise<void>;
-  updateUserPassword: (userId: string, newPassword: string) => Promise<void>;
   updateOwnPassword: (userId: string, currentPassword: string, newPassword: string) => Promise<boolean>;
   updateUser: (user: User) => Promise<void>;
   refreshUsers: () => Promise<void>;
@@ -120,11 +119,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshUsers();
   };
   
-  const updateUserPassword = async (userId: string, newPassword: string) => {
-    await updateUserPasswordAction(userId, newPassword);
-    await refreshUsers();
-  };
-
   const updateOwnPassword = async (userId: string, currentPassword: string, newPassword: string): Promise<boolean> => {
     const db = await readDb();
     const userToUpdate = db.users.find(u => u.id === userId);
@@ -133,7 +127,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false; // Current password does not match
     }
 
-    await updateUserPasswordAction(userId, newPassword);
+    const updatedUsers = db.users.map(u => u.id === userId ? {...u, password: newPassword} : u);
+    await writeDb({...db, users: updatedUsers });
     return true;
   };
 
@@ -143,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshCurrentUser();
   }
 
-  const value = { user, users, loading, login, completeTwoFactorLogin, logout, addUser, removeUser, updateUserPassword, updateOwnPassword, updateUser, refreshUsers, refreshCurrentUser };
+  const value = { user, users, loading, login, completeTwoFactorLogin, logout, addUser, removeUser, updateOwnPassword, updateUser, refreshUsers, refreshCurrentUser };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

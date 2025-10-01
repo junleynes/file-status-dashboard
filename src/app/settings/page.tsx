@@ -9,8 +9,8 @@ import { useBranding } from "@/hooks/use-branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { MonitoredPath, MonitoredPaths, User, CleanupSettings } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff, FileImage } from "lucide-react";
+import type { MonitoredPath, MonitoredPaths, User, CleanupSettings, SmtpSettings } from "@/types";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff, FileImage, Mail, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -35,6 +35,9 @@ import {
     updateFailureRemark,
     enableTwoFactor,
     disableTwoFactor,
+    updateSmtpSettings,
+    testSmtpConnection,
+    sendPasswordResetEmail,
 } from "@/lib/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -52,8 +55,18 @@ const defaultFailedPath: MonitoredPath = {
   path: '',
 };
 
+const defaultSmtpSettings: SmtpSettings = {
+    host: '',
+    port: 587,
+    secure: false,
+    auth: {
+        user: '',
+        pass: ''
+    }
+}
+
 export default function SettingsPage() {
-  const { user, loading, users, addUser, removeUser, updateUserPassword, refreshUsers } = useAuth();
+  const { user, loading, users, addUser, removeUser, refreshUsers } = useAuth();
   const { brandName, logo, favicon, footerText, setBrandName, setLogo, setFavicon, setFooterText, brandingLoading } = useBranding();
   const router = useRouter();
 
@@ -72,7 +85,6 @@ export default function SettingsPage() {
   const [newUserRole, setNewUserRole] = useState<'user' | 'admin'>('user');
 
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [newPassword, setNewPassword] = useState('');
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
   const [cleanupSettings, setCleanupSettings] = useState<CleanupSettings>({
@@ -83,6 +95,8 @@ export default function SettingsPage() {
   
   const [failureRemark, setFailureRemark] = useState('');
   const [initialFailureRemark, setInitialFailureRemark] = useState('');
+  
+  const [smtpSettings, setSmtpSettings] = useState<SmtpSettings>(defaultSmtpSettings);
 
 
   const [isPending, startTransition] = useTransition();
@@ -114,6 +128,7 @@ export default function SettingsPage() {
         setCleanupSettings(db.cleanupSettings);
         setFailureRemark(db.failureRemark || '');
         setInitialFailureRemark(db.failureRemark || '');
+        setSmtpSettings(db.smtpSettings || defaultSmtpSettings);
     }
     fetchData();
   }, [])
@@ -309,20 +324,37 @@ export default function SettingsPage() {
 
   const handleOpenResetDialog = (userToReset: User) => {
     setSelectedUser(userToReset);
-    setNewPassword('');
     setIsResetDialogOpen(true);
   };
 
   const handlePasswordReset = () => {
-    if (!selectedUser || !newPassword) {
-      toast({ title: "Error", description: "Please enter a new password.", variant: "destructive" });
+    if (!selectedUser) return;
+
+    if (!selectedUser.email) {
+      toast({
+        title: "Cannot Reset Password",
+        description: "This user does not have a registered email address to send the temporary password to.",
+        variant: "destructive"
+      });
       return;
     }
+
     startTransition(async () => {
-        await updateUserPassword(selectedUser.id, newPassword);
-        toast({ title: "Password Reset", description: `Password for ${selectedUser.name} has been updated.` });
+      const result = await sendPasswordResetEmail(selectedUser.id);
+      if (result.success) {
+        toast({
+          title: "Password Reset Email Sent",
+          description: `A temporary password has been sent to ${selectedUser.name}.`
+        });
         setIsResetDialogOpen(false);
         setSelectedUser(null);
+      } else {
+        toast({
+          title: "Failed to Send Email",
+          description: result.error,
+          variant: "destructive"
+        });
+      }
     });
   };
   
@@ -361,6 +393,38 @@ export default function SettingsPage() {
               [field]: value
           }
       }))
+  }
+  
+  const handleSmtpSettingChange = (field: keyof SmtpSettings | `auth.${keyof SmtpSettings['auth']}`, value: any) => {
+    setSmtpSettings(prev => {
+        const newSettings = { ...prev };
+        if (field.startsWith('auth.')) {
+            const authField = field.split('.')[1] as keyof SmtpSettings['auth'];
+            newSettings.auth = { ...newSettings.auth, [authField]: value };
+        } else {
+            (newSettings as any)[field] = value;
+        }
+        return newSettings;
+    });
+  };
+
+  const handleSaveSmtpSettings = () => {
+    startTransition(async () => {
+        await updateSmtpSettings(smtpSettings);
+        toast({ title: "SMTP Settings Saved", description: "Your email configuration has been updated." });
+    });
+  };
+  
+  const handleTestSmtpConnection = () => {
+    startTransition(async () => {
+        await updateSmtpSettings(smtpSettings); // Save before testing
+        const result = await testSmtpConnection();
+        if (result.success) {
+            toast({ title: "SMTP Connection Successful", description: "The application successfully connected to your SMTP server." });
+        } else {
+            toast({ title: "SMTP Connection Failed", description: result.error, variant: "destructive", duration: 10000 });
+        }
+    });
   }
 
 
@@ -570,6 +634,45 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
       
+       <Card>
+        <CardHeader>
+          <CardTitle>SMTP Configuration</CardTitle>
+          <CardDescription>Configure your SMTP server to send password reset emails.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor="smtp-host">SMTP Host</Label>
+                    <Input id="smtp-host" value={smtpSettings.host} onChange={(e) => handleSmtpSettingChange('host', e.target.value)} disabled={isPending} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="smtp-port">Port</Label>
+                    <Input id="smtp-port" type="number" value={smtpSettings.port} onChange={(e) => handleSmtpSettingChange('port', parseInt(e.target.value, 10))} disabled={isPending} />
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="smtp-user">Username</Label>
+                    <Input id="smtp-user" value={smtpSettings.auth.user} onChange={(e) => handleSmtpSettingChange('auth.user', e.target.value)} disabled={isPending} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="smtp-pass">Password</Label>
+                    <Input id="smtp-pass" type="password" value={smtpSettings.auth.pass} onChange={(e) => handleSmtpSettingChange('auth.pass', e.target.value)} disabled={isPending} />
+                </div>
+            </div>
+             <div className="flex items-center space-x-2">
+                <Switch id="smtp-secure" checked={smtpSettings.secure} onCheckedChange={(checked) => handleSmtpSettingChange('secure', checked)} disabled={isPending} />
+                <Label htmlFor="smtp-secure">Use SSL/TLS</Label>
+            </div>
+             <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                <Button onClick={handleSaveSmtpSettings} disabled={isPending}>
+                    <Save className="mr-2 h-4 w-4" /> Save SMTP Settings
+                </Button>
+                <Button variant="outline" onClick={handleTestSmtpConnection} disabled={isPending}>
+                    <Send className="mr-2 h-4 w-4" /> Test Connection
+                </Button>
+            </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Monitored File Extensions</CardTitle>
@@ -811,28 +914,35 @@ export default function SettingsPage() {
           <DialogHeader>
             <DialogTitle>Reset Password for {selectedUser?.name}</DialogTitle>
             <DialogDescription>
-              Enter a new password for the selected user. They will be able to use this password to log in next time.
+                This will generate a new random password and email it to the user. Are you sure you want to continue?
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="reset-password">New Password</Label>
-            <Input
-              id="reset-password"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Enter new password"
-              disabled={isPending}
-            />
-          </div>
+          {selectedUser?.email ? (
+            <Alert>
+              <Mail className="h-4 w-4" />
+              <AlertDescription>
+                An email with the temporary password will be sent to <strong>{selectedUser.email}</strong>.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <Alert variant="destructive">
+              <MessageSquareWarning className="h-4 w-4" />
+              <AlertDescription>
+                This user does not have a registered email address. Cannot send password reset email.
+              </AlertDescription>
+            </Alert>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsResetDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handlePasswordReset} disabled={isPending || !newPassword}>Set Password</Button>
+            <Button 
+                onClick={handlePasswordReset} 
+                disabled={isPending || !selectedUser?.email}
+            >
+              {isPending ? 'Sending...' : 'Send Reset Email'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </motion.div>
   );
 }
-
-    
