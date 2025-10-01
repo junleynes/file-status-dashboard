@@ -47,6 +47,7 @@ export type CleanupSettings = {
 export type BrandingSettings = {
   brandName: string;
   logo: string | null;
+  favicon: string | null;
   footerText: string;
 }
 
@@ -59,3 +60,5 @@ export type Database = {
     cleanupSettings: CleanupSettings;
     failureRemark: string;
 }
+
+    

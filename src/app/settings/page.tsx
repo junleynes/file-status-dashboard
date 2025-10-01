@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MonitoredPath, MonitoredPaths, User, CleanupSettings } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff } from "lucide-react";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff, FileImage } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -38,6 +38,7 @@ import {
 } from "@/lib/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { BrandLogo } from "@/components/brand-logo";
 
 const defaultImportPath: MonitoredPath = {
   id: 'import-path',
@@ -53,7 +54,7 @@ const defaultFailedPath: MonitoredPath = {
 
 export default function SettingsPage() {
   const { user, loading, users, addUser, removeUser, updateUserPassword, refreshUsers } = useAuth();
-  const { brandName, logo, footerText, setBrandName, setLogo, setFooterText, brandingLoading } = useBranding();
+  const { brandName, logo, favicon, footerText, setBrandName, setLogo, setFavicon, setFooterText, brandingLoading } = useBranding();
   const router = useRouter();
 
   const [paths, setPaths] = useState<MonitoredPaths>({ import: defaultImportPath, failed: defaultFailedPath });
@@ -213,11 +214,32 @@ export default function SettingsPage() {
       reader.readAsDataURL(file);
     }
   };
+  
+  const handleFaviconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        startTransition(async () => {
+            await setFavicon(reader.result as string);
+            toast({ title: "Favicon Updated", description: "Your new favicon has been saved. It may take a moment to update in your browser." });
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleClearLogo = () => {
     startTransition(async () => {
         await setLogo(null);
         toast({ title: "Logo Cleared", description: "The brand logo has been removed.", variant: "destructive" });
+    });
+  };
+  
+  const handleClearFavicon = () => {
+    startTransition(async () => {
+        await setFavicon(null);
+        toast({ title: "Favicon Cleared", description: "The favicon has been removed.", variant: "destructive" });
     });
   };
 
@@ -431,7 +453,7 @@ export default function SettingsPage() {
         <CardContent>
             <div className="space-y-2">
                 <Label htmlFor="failure-remark">Failure Remark</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                     <Input 
                         id="failure-remark"
                         value={failureRemark} 
@@ -439,7 +461,7 @@ export default function SettingsPage() {
                         disabled={isPending} 
                         placeholder="Enter a default failure remark"
                     />
-                    <Button onClick={handleSaveFailureRemark} disabled={isPending || failureRemark === initialFailureRemark}>
+                    <Button onClick={handleSaveFailureRemark} disabled={isPending || failureRemark === initialFailureRemark} className="w-full sm:w-auto">
                         <Save className="mr-2 h-4 w-4" />
                         Save
                     </Button>
@@ -506,7 +528,7 @@ export default function SettingsPage() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, x: -20 }}
                             transition={{ duration: 0.3 }}
-                            className="flex items-center justify-between rounded-md p-2 hover:bg-muted/50"
+                            className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-md p-2 hover:bg-muted/50 gap-2"
                         >
                             <div className="flex items-center gap-3">
                                 <Avatar className="h-8 w-8">
@@ -518,21 +540,21 @@ export default function SettingsPage() {
                                     <p className="text-xs text-muted-foreground">@{u.username} {u.email && `· ${u.email}`}</p>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1">
+                            <div className="flex items-center gap-1 flex-wrap self-end sm:self-center">
                                 {u.twoFactorRequired ? (
                                     <Button variant="outline" size="sm" onClick={() => handleDisableTwoFactor(u.id)} disabled={isPending}>
                                         <ShieldOff className="mr-2 h-4 w-4 text-destructive" />
-                                        Disable 2FA
+                                        <span className="hidden sm:inline">Disable 2FA</span>
                                     </Button>
                                 ) : (
                                      <Button variant="outline" size="sm" onClick={() => handleEnableTwoFactor(u.id)} disabled={isPending}>
                                         <ShieldCheck className="mr-2 h-4 w-4 text-green-600" />
-                                        Enable 2FA
+                                        <span className="hidden sm:inline">Enable 2FA</span>
                                     </Button>
                                 )}
                                 <Button variant="outline" size="sm" onClick={() => handleOpenResetDialog(u)} disabled={isPending}>
                                     <KeyRound className="mr-2 h-4 w-4" />
-                                    Reset Password
+                                    <span className="hidden sm:inline">Reset Password</span>
                                 </Button>
                                 <Button variant="ghost" size="icon" onClick={() => handleRemoveUser(u.id)} disabled={user?.id === u.id || isPending}>
                                     <Trash2 className="h-4 w-4 text-destructive" />
@@ -554,7 +576,7 @@ export default function SettingsPage() {
           <CardDescription>Specify which file extensions or containers to monitor. Add one extension at a time.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleAddExtension} className="flex gap-4 mb-4">
+          <form onSubmit={handleAddExtension} className="flex flex-col sm:flex-row gap-4 mb-4">
             <div className="flex-1 space-y-2">
                 <Label htmlFor="new-extension">Extension</Label>
                 <Input
@@ -566,7 +588,7 @@ export default function SettingsPage() {
                 />
             </div>
             <div className="self-end">
-              <Button type="submit" className="w-full md:w-auto" disabled={isPending}>
+              <Button type="submit" className="w-full sm:w-auto" disabled={isPending}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Extension
               </Button>
@@ -719,24 +741,18 @@ export default function SettingsPage() {
         <CardContent className="space-y-6">
             <div className="space-y-2">
                 <Label htmlFor="brand-name">Brand Name</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                     <Input id="brand-name" value={localBrandName} onChange={handleBrandNameChange} disabled={isPending} />
-                    <Button onClick={handleBrandNameSave} disabled={isPending || localBrandName === brandName}>Save</Button>
+                    <Button onClick={handleBrandNameSave} disabled={isPending || localBrandName === brandName} className="w-full sm:w-auto">Save</Button>
                 </div>
             </div>
             <div className="space-y-2">
                 <Label>Logo</Label>
                 <div className="flex items-center gap-4">
                     <div className="relative h-16 w-16 rounded-md border p-1">
-                      {logo ? (
-                        <Image src={logo} alt="Brand Logo" layout="fill" objectFit="contain" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-muted">
-                           <UploadCloud className="h-6 w-6 text-muted-foreground" />
-                        </div>
-                      )}
+                      <BrandLogo className="h-full w-full" />
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                         <Input id="logo-upload" type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" disabled={isPending} />
                         <Button asChild variant="outline" disabled={isPending}>
                             <label htmlFor="logo-upload">
@@ -753,11 +769,38 @@ export default function SettingsPage() {
                     </div>
                 </div>
             </div>
+            <div className="space-y-2">
+                <Label>Favicon</Label>
+                 <div className="flex items-center gap-4">
+                    <div className="relative h-16 w-16 rounded-md border p-2 flex items-center justify-center">
+                      {favicon ? (
+                        <Image src={favicon} alt="Favicon preview" layout="fill" objectFit="contain" />
+                      ) : (
+                        <FileImage className="h-8 w-8 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <Input id="favicon-upload" type="file" accept="image/x-icon,image/png,image/svg+xml" onChange={handleFaviconUpload} className="hidden" disabled={isPending} />
+                        <Button asChild variant="outline" disabled={isPending}>
+                            <label htmlFor="favicon-upload">
+                                <UploadCloud className="mr-2 h-4 w-4" />
+                                Upload Favicon
+                            </label>
+                        </Button>
+                        {favicon && (
+                            <Button variant="destructive" onClick={handleClearFavicon} disabled={isPending}>
+                                <XCircle className="mr-2 h-4 w-4" />
+                                Clear Favicon
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </div>
              <div className="space-y-2">
                 <Label htmlFor="footer-text">Footer Text</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                     <Input id="footer-text" value={localFooterText} onChange={handleFooterTextChange} disabled={isPending} />
-                    <Button onClick={handleFooterTextSave} disabled={isPending || localFooterText === footerText}>Save</Button>
+                    <Button onClick={handleFooterTextSave} disabled={isPending || localFooterText === footerText} className="w-full sm:w-auto">Save</Button>
                 </div>
             </div>
         </CardContent>
@@ -791,3 +834,5 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
+
+    

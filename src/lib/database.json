@@ -27,6 +27,7 @@
   "branding": {
     "brandName": "Publish Lookout",
     "logo": null,
+    "favicon": null,
     "footerText": "© Copyright 2025 Publish Lookout. All Rights Reserve."
   },
   "monitoredPaths": {
@@ -63,5 +64,7 @@
       "unit": "hours"
     }
   },
-  "failureRemark": "Bascode mismatch, no placeholder, or media already exists."
+  "failureRemark": "Filename does not match bascode of placeholder, no placeholder create or contains media already."
 }
+
+    

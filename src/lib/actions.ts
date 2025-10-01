@@ -224,7 +224,7 @@ export async function updateBrandingSettings(settings: BrandingSettings) {
   db.branding = settings;
   await writeDb(db);
   revalidatePath('/settings');
-  revalidatePath('/layout', 'layout');
+  revalidatePath('/', 'layout');
 }
 
 export async function addUser(newUser: User): Promise<{ success: boolean, message?: string }> {
@@ -396,3 +396,5 @@ export async function updateFileRemarks(filePath: string, remarks: string) {
          console.log(`Could not find file ${fileName} to update remarks.`);
     }
 }
+
+    
