@@ -46,6 +46,7 @@ export type CleanupSettings = {
 
 export type ProcessingSettings = {
   autoTrimInvalidChars: boolean;
+  autoExpandPrefixes: boolean;
 }
 
 export type BrandingSettings = {
@@ -77,4 +78,5 @@ export type Database = {
     smtpSettings: SmtpSettings;
 }
 
+    
     

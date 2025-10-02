@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useTransition } from "react";
@@ -10,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MonitoredPath, MonitoredPaths, User, CleanupSettings, SmtpSettings, ProcessingSettings } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff, FileImage, Mail, Send, Wand2 } from "lucide-react";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff, FileImage, Mail, Send, Wand2, Bot } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -67,7 +68,8 @@ const defaultSmtpSettings: SmtpSettings = {
 };
 
 const defaultProcessingSettings: ProcessingSettings = {
-    autoTrimInvalidChars: false
+    autoTrimInvalidChars: false,
+    autoExpandPrefixes: false,
 };
 
 
@@ -530,9 +532,9 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>File Processing</CardTitle>
-          <CardDescription>Configure rules for how incoming files are handled.</CardDescription>
+          <CardDescription>Configure automated rules for how files are handled in the `rejected` folder.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
             <div className="flex flex-row items-start space-x-4 rounded-lg border p-4">
                 <Switch
                     id="auto-trim-chars"
@@ -542,7 +544,19 @@ export default function SettingsPage() {
                 />
                 <div className="flex-1 space-y-1">
                     <Label htmlFor="auto-trim-chars">Auto-fix invalid filenames</Label>
-                    <p className="text-xs text-muted-foreground">Automatically remove leading, trailing, and multiple consecutive spaces from filenames upon import.</p>
+                    <p className="text-xs text-muted-foreground">Automatically remove leading, trailing, and multiple consecutive spaces from filenames in the rejected folder and retry them.</p>
+                </div>
+            </div>
+             <div className="flex flex-row items-start space-x-4 rounded-lg border p-4">
+                <Switch
+                    id="auto-expand-prefixes"
+                    checked={processingSettings.autoExpandPrefixes}
+                    onCheckedChange={(checked) => handleProcessingSettingsChange('autoExpandPrefixes', checked)}
+                    disabled={isPending}
+                />
+                <div className="flex-1 space-y-1">
+                    <Label htmlFor="auto-expand-prefixes">Auto Expand Filename Prefixes</Label>
+                    <p className="text-xs text-muted-foreground">When a file in `rejected` matches `PBPCPN..._xxxxxx_xxxxxx_xxxxx.ext`, automatically create copies in `import` for each valid 'P', 'B', or 'C' prefix pair.</p>
                 </div>
             </div>
         </CardContent>
@@ -985,5 +999,7 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
+
+    
 
     

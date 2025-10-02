@@ -1,4 +1,3 @@
-
 {
   "users": [
     {
@@ -65,7 +64,8 @@
     }
   },
   "processingSettings": {
-    "autoTrimInvalidChars": false
+    "autoTrimInvalidChars": false,
+    "autoExpandPrefixes": false
   },
   "failureRemark": "Bascode mismatch, no placeholder, or media already exists.",
   "smtpSettings": {
