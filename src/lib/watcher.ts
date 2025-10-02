@@ -15,18 +15,15 @@ let isCleaning = false;
 // Helper function to clean filenames
 const cleanFileName = (fileName: string): string => {
     // Define invalid characters using a regular expression.
-    // This includes: * " / \ < > : | ?
-    const invalidChars = /[*"\/\\<>:|\?]/g;
+    // This includes: * " / \ < > : | ? and all whitespace characters
+    const invalidCharsAndSpaces = /[*"\/\\<>:|\?\s]/g;
     const extension = path.extname(fileName);
     const baseName = path.basename(fileName, extension);
     
-    // 1. Remove all invalid characters from the base name
-    let cleanedBase = baseName.replace(invalidChars, '');
+    // Remove all invalid characters and spaces from the base name
+    const cleanedBase = baseName.replace(invalidCharsAndSpaces, '');
     
-    // 2. Replace multiple spaces with a single space and trim leading/trailing spaces from the base name
-    cleanedBase = cleanedBase.replace(/\s+/g, ' ').trim();
-    
-    // 3. Re-assemble the filename
+    // Re-assemble the filename
     return cleanedBase + extension;
 };
 
