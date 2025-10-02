@@ -38,7 +38,7 @@ async function pollDirectories() {
     const db = await readDb();
     const importPath = db.monitoredPaths.import.path;
     const failedPath = db.monitoredPaths.failed.path;
-    const monitoredExtensions = new Set(db.monitoredExtensions.map(ext => `.${ext.toLowerCase()}`));
+    const monitoredExtensions = new Set(db.monitoredExtensions.map(ext => ext.toLowerCase()));
     const { autoTrimInvalidChars, autoExpandPrefixes } = db.processingSettings || { autoTrimInvalidChars: false, autoExpandPrefixes: false };
 
     if (!importPath || !failedPath) {
@@ -59,9 +59,10 @@ async function pollDirectories() {
       if (processedByAutomation.has(originalFileName)) continue;
 
       const fileExt = path.extname(originalFileName).toLowerCase();
+      const extWithoutDot = fileExt.substring(1);
 
       // Workflow 1: Auto Expand Prefixes
-      if (autoExpandPrefixes && (monitoredExtensions.size === 0 || monitoredExtensions.has(fileExt.substring(1)))) {
+      if (autoExpandPrefixes && (monitoredExtensions.size === 0 || monitoredExtensions.has(extWithoutDot))) {
           const parts = path.basename(originalFileName, fileExt).split('_');
           if (parts.length === 4 && parts[1].length === 6 && parts[2].length === 6 && parts[3].length === 5) {
               const prefixPairsStr = parts[0];
@@ -168,7 +169,7 @@ async function pollDirectories() {
 
     // --- Pass 2: Handle failed files (that were not auto-fixed) ---
     for (const fileName of filesInFailed) {
-      if (monitoredExtensions.size > 0 && !monitoredExtensions.has(path.extname(fileName).toLowerCase())) {
+      if (monitoredExtensions.size > 0 && !monitoredExtensions.has(path.extname(fileName).toLowerCase().substring(1))) {
         continue; // Skip files that are not monitored
       }
       let fileInDb = db.fileStatuses.find(f => f.name === fileName);
@@ -195,7 +196,7 @@ async function pollDirectories() {
 
     // --- Pass 3: Handle new and re-processed files in Import ---
     for (const fileName of filesInImport) {
-       if (monitoredExtensions.size > 0 && !monitoredExtensions.has(path.extname(fileName).toLowerCase())) {
+       if (monitoredExtensions.size > 0 && !monitoredExtensions.has(path.extname(fileName).toLowerCase().substring(1))) {
             continue; // Skip files that are not monitored
        }
         
