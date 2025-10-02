@@ -14,9 +14,17 @@ let isCleaning = false;
 
 // Helper function to clean filenames
 const cleanFileName = (fileName: string): string => {
-    // 1. Replace multiple spaces with a single space
-    // 2. Trim leading/trailing spaces
-    return fileName.replace(/\s+/g, ' ').trim();
+    // Define invalid characters using a regular expression.
+    // This includes: * " / \ < > : | ?
+    const invalidChars = /[*"\/\\<>:|\?]/g;
+    
+    // 1. Remove all invalid characters
+    let cleaned = fileName.replace(invalidChars, '');
+    
+    // 2. Replace multiple spaces with a single space and trim leading/trailing spaces
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+    
+    return cleaned;
 };
 
 
