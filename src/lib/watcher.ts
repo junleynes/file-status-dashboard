@@ -63,7 +63,7 @@ async function pollDirectories() {
       // Workflow 1: Auto Expand Prefixes
       if (autoExpandPrefixes && (monitoredExtensions.size === 0 || monitoredExtensions.has(fileExt.substring(1)))) {
           const parts = path.basename(originalFileName, fileExt).split('_');
-          if (parts.length === 4 && parts[1].length === 6 && parts[2].length === 6 && parts[3].length === 5) {
+          if (parts.length === 4 && parts[1].length === 6 && parts[3].length === 5) {
               const prefixPairsStr = parts[0];
               if (prefixPairsStr.length > 0 && prefixPairsStr.length % 2 === 0) {
                   const validPairs = [];
@@ -390,4 +390,6 @@ async function initializePollingService() {
 })();
 
     
+    
+
     
