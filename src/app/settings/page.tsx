@@ -544,7 +544,7 @@ export default function SettingsPage() {
                 />
                 <div className="flex-1 space-y-1">
                     <Label htmlFor="auto-trim-chars">Auto-fix invalid filenames</Label>
-                    <p className="text-xs text-muted-foreground">Automatically remove leading, trailing, and multiple consecutive spaces from filenames in the rejected folder and retry them.</p>
+                    <p className="text-xs text-muted-foreground">Automatically remove invalid characters and extra spaces from filenames in the rejected folder and retry them.</p>
                 </div>
             </div>
              <div className="flex flex-row items-start space-x-4 rounded-lg border p-4">
@@ -556,7 +556,7 @@ export default function SettingsPage() {
                 />
                 <div className="flex-1 space-y-1">
                     <Label htmlFor="auto-expand-prefixes">Auto Expand Filename Prefixes</Label>
-                    <p className="text-xs text-muted-foreground">When a file in `rejected` matches `PBPCPN..._xxxxxx_xxxxxx_xxxxx.ext`, automatically create copies in `import` for each valid 'P', 'B', or 'C' prefix pair.</p>
+                    <p className="text-xs text-muted-foreground">When a file in `rejected` matches the format `PBPCPN..._xxxxxx_xxxxxx_xxxxx.ext`, automatically create copies in `import` for each valid 'P', 'B', or 'C' prefix pair and delete the original.</p>
                 </div>
             </div>
         </CardContent>
