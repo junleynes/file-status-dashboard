@@ -75,7 +75,8 @@ async function pollDirectories() {
                       }
                   }
 
-                  if (validPairs.length > 0) {
+                  // FIX: Only expand if there are multiple valid pairs to avoid infinite loops
+                  if (validPairs.length > 1) {
                       console.log(`[${new Date().toISOString()}] LOG: Prefix expansion triggered for "${originalFileName}". Valid pairs: ${validPairs.join(', ')}.`);
                       const originalFilePath = path.join(failedPath, originalFileName);
                       let allCopiesSucceeded = true;
@@ -110,6 +111,14 @@ async function pollDirectories() {
                               await fs.unlink(originalFilePath);
                               console.log(`[${new Date().toISOString()}] LOG: Deleted original file "${originalFileName}" after expansion.`);
                               processedByAutomation.add(originalFileName);
+                              
+                              // FIX: Remove original file from the status list
+                              const originalFileIndex = db.fileStatuses.findIndex(f => f.name === originalFileName);
+                              if (originalFileIndex > -1) {
+                                  db.fileStatuses.splice(originalFileIndex, 1);
+                                  hasDbChanged = true;
+                                  console.log(`[${new Date().toISOString()}] LOG: Removed original file status for "${originalFileName}" from dashboard.`);
+                              }
                           } catch (deleteError) {
                               console.error(`[${new Date().toISOString()}] ERROR: Failed to delete original file "${originalFileName}" after copy:`, deleteError);
                           }
