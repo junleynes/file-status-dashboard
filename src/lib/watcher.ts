@@ -12,6 +12,14 @@ const CLEANUP_INTERVAL = 60000; // 1 minute
 let isPolling = false;
 let isCleaning = false;
 
+// Helper function to clean filenames
+const cleanFileName = (fileName: string): string => {
+    // 1. Replace multiple spaces with a single space
+    // 2. Trim leading/trailing spaces
+    return fileName.replace(/\s+/g, ' ').trim();
+};
+
+
 async function pollDirectories() {
   if (isPolling) {
     return;
@@ -23,6 +31,7 @@ async function pollDirectories() {
     const importPath = db.monitoredPaths.import.path;
     const failedPath = db.monitoredPaths.failed.path;
     const monitoredExtensions = new Set(db.monitoredExtensions.map(ext => `.${ext.toLowerCase()}`));
+    const { autoTrimInvalidChars } = db.processingSettings || { autoTrimInvalidChars: false };
 
     if (!importPath || !failedPath) {
         console.error('[Polling] Monitored paths are not configured. Skipping poll.');
@@ -35,12 +44,54 @@ async function pollDirectories() {
     // --- Files on Disk ---
     const filesInImport = await fs.readdir(importPath).catch(() => [] as string[]);
     const filesInFailed = await fs.readdir(failedPath).catch(() => [] as string[]);
+    
+    // --- Pass 1: Handle Filename Cleanup in Import ---
+    if (autoTrimInvalidChars) {
+        for (const originalFileName of filesInImport) {
+            const cleanedFileName = cleanFileName(originalFileName);
+            if (originalFileName !== cleanedFileName) {
+                const oldPath = path.join(importPath, originalFileName);
+                const newPath = path.join(importPath, cleanedFileName);
+                
+                try {
+                    // Check if a file with the cleaned name already exists
+                    await fs.access(newPath);
+                    console.log(`[${new Date().toISOString()}] LOG: Auto-rename skipped for "${originalFileName}" because "${cleanedFileName}" already exists.`);
+                } catch (e) {
+                    // If it doesn't exist, we can rename it
+                    try {
+                        await fs.rename(oldPath, newPath);
+                        console.log(`[${new Date().toISOString()}] LOG: Auto-renamed "${originalFileName}" to "${cleanedFileName}".`);
+                        // The loop will now pick up the cleaned file name in the next full pass.
+                        // We must add a placeholder record so it doesn't get re-processed as 'new' immediately.
+                        const newFile: FileStatus = {
+                            id: `file-${Date.now()}-${Math.random()}`,
+                            name: cleanedFileName,
+                            status: 'processing',
+                            source: db.monitoredPaths.import.name,
+                            lastUpdated: new Date().toISOString(),
+                            remarks: `Auto-renamed from "${originalFileName}"`
+                        };
+                        db.fileStatuses.unshift(newFile);
+                        hasDbChanged = true;
+
+                    } catch (renameError) {
+                        console.error(`[${new Date().toISOString()}] ERROR: Failed to auto-rename "${originalFileName}":`, renameError);
+                    }
+                }
+            }
+        }
+        // Re-read the import directory after potential renames
+        filesInImport.splice(0, filesInImport.length, ...(await fs.readdir(importPath).catch(() => [] as string[])));
+    }
+
+
     const filesInImportSet = new Set(filesInImport);
     const filesInFailedSet = new Set(filesInFailed);
-
     const failureRemark = db.failureRemark || "File processing failed.";
 
-    // --- Pass 1: Handle failed files (Highest Priority) ---
+
+    // --- Pass 2: Handle failed files (Highest Priority) ---
     for (const fileName of filesInFailed) {
       if (monitoredExtensions.size > 0 && !monitoredExtensions.has(path.extname(fileName).toLowerCase())) {
         continue; // Skip files that are not monitored
@@ -67,7 +118,7 @@ async function pollDirectories() {
       }
     }
 
-    // --- Pass 2: Handle new and re-processed files in Import ---
+    // --- Pass 3: Handle new and re-processed files in Import ---
     for (const fileName of filesInImport) {
        if (monitoredExtensions.size > 0 && !monitoredExtensions.has(path.extname(fileName).toLowerCase())) {
             continue; // Skip files that are not monitored
@@ -86,21 +137,21 @@ async function pollDirectories() {
         db.fileStatuses.unshift(newFile);
         console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" marked as processing (newly detected).`);
         hasDbChanged = true;
-      } else if (fileInDb.status === 'published' || fileInDb.status === 'failed') {
+      } else if (fileInDb.status === 'published' || fileInDb.status === 'failed' || fileInDb.status === 'timed-out') {
         fileInDb.status = 'processing';
         fileInDb.lastUpdated = new Date().toISOString();
-        fileInDb.remarks = ''; // Clear old remarks
+        fileInDb.remarks = fileInDb.remarks?.includes('Auto-renamed') ? fileInDb.remarks : ''; // Keep auto-rename remark
         console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" marked as processing (re-imported).`);
         hasDbChanged = true;
       }
     }
     
-    // --- Pass 3: Check for published files ---
+    // --- Pass 4: Check for published files ---
     for (const file of db.fileStatuses) {
         if (file.status === 'processing') {
             if (!filesInImportSet.has(file.name) && !filesInFailedSet.has(file.name)) {
                 file.status = 'published';
-                file.remarks = 'File processed successfully.';
+                file.remarks = file.remarks?.includes('Auto-renamed') ? `${file.remarks}; File processed successfully.` : 'File processed successfully.';
                 file.lastUpdated = new Date().toISOString();
                 console.log(`[${new Date().toISOString()}] LOG: Status Change - "${file.name}" marked as published.`);
                 hasDbChanged = true;
@@ -258,3 +309,4 @@ async function initializePollingService() {
     }
 })();
 
+    

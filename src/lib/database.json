@@ -64,6 +64,9 @@
       "unit": "hours"
     }
   },
+  "processingSettings": {
+    "autoTrimInvalidChars": false
+  },
   "failureRemark": "Bascode mismatch, no placeholder, or media already exists.",
   "smtpSettings": {
     "host": "",
@@ -75,3 +78,5 @@
     }
   }
 }
+
+    

@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { readDb, writeDb } from './db';
-import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatus, MonitoredPath, SmtpSettings } from '../types';
+import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatus, MonitoredPath, SmtpSettings, ProcessingSettings } from '../types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { authenticator } from 'otplib';
@@ -408,6 +408,13 @@ export async function updateCleanupSettings(settings: CleanupSettings) {
     revalidatePath('/settings');
 }
 
+export async function updateProcessingSettings(settings: ProcessingSettings) {
+    const db = await readDb();
+    db.processingSettings = settings;
+    await writeDb(db);
+    revalidatePath('/settings');
+}
+
 export async function clearAllFileStatuses() {
     const db = await readDb();
     db.fileStatuses = [];
@@ -432,7 +439,7 @@ export async function addFileStatus(filePath: string, status: FileStatus['status
         db.fileStatuses[existingFileIndex].source = sourceName;
         db.fileStatuses[existingFileIndex].lastUpdated = new Date().toISOString();
         db.fileStatuses[existingFileIndex].remarks = status === 'processing' ? '' : db.fileStatuses[existingFileIndex].remarks; // Clear remarks on reprocessing
-        console.log(`Updated existing file status: ${fileName} to ${status}`);
+        console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" updated to ${status}.`);
     } else {
         // Add new record
         const newFileStatus: FileStatus = {
@@ -443,7 +450,7 @@ export async function addFileStatus(filePath: string, status: FileStatus['status
             lastUpdated: new Date().toISOString(),
         };
         db.fileStatuses.unshift(newFileStatus); // Add to the top of the list
-        console.log(`Added new file to track: ${fileName}`);
+        console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" marked as ${status} (newly detected).`);
     }
 
     await writeDb(db);
@@ -461,7 +468,7 @@ export async function updateFileStatus(filePath: string, newStatus: FileStatus['
         db.fileStatuses[fileIndex].lastUpdated = new Date().toISOString();
         await writeDb(db);
         revalidatePath('/dashboard');
-        console.log(`Updated status for file ${fileName} to ${newStatus}`);
+        console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" updated to ${newStatus}.`);
     } else {
         // If file doesn't exist, create it. This can happen if a file is moved to 'failed' before being seen in 'import'
         console.log(`Could not find file ${fileName} to update. Adding it instead.`);
@@ -488,3 +495,5 @@ export async function updateFileRemarks(filePath: string, remarks: string) {
          console.log(`Could not find file ${fileName} to update remarks.`);
     }
 }
+
+    

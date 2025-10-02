@@ -9,8 +9,8 @@ import { useBranding } from "@/hooks/use-branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { MonitoredPath, MonitoredPaths, User, CleanupSettings, SmtpSettings } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff, FileImage, Mail, Send } from "lucide-react";
+import type { MonitoredPath, MonitoredPaths, User, CleanupSettings, SmtpSettings, ProcessingSettings } from "@/types";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff, FileImage, Mail, Send, Wand2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -38,6 +38,7 @@ import {
     updateSmtpSettings,
     testSmtpConnection,
     sendPasswordResetEmail,
+    updateProcessingSettings,
 } from "@/lib/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -63,7 +64,12 @@ const defaultSmtpSettings: SmtpSettings = {
         user: '',
         pass: ''
     }
-}
+};
+
+const defaultProcessingSettings: ProcessingSettings = {
+    autoTrimInvalidChars: false
+};
+
 
 export default function SettingsPage() {
   const { user, loading, users, addUser, removeUser, refreshUsers } = useAuth();
@@ -97,6 +103,8 @@ export default function SettingsPage() {
   const [initialFailureRemark, setInitialFailureRemark] = useState('');
   
   const [smtpSettings, setSmtpSettings] = useState<SmtpSettings>(defaultSmtpSettings);
+  
+  const [processingSettings, setProcessingSettings] = useState<ProcessingSettings>(defaultProcessingSettings);
 
 
   const [isPending, startTransition] = useTransition();
@@ -129,6 +137,7 @@ export default function SettingsPage() {
         setFailureRemark(db.failureRemark || '');
         setInitialFailureRemark(db.failureRemark || '');
         setSmtpSettings(db.smtpSettings || defaultSmtpSettings);
+        setProcessingSettings(db.processingSettings || defaultProcessingSettings);
     }
     fetchData();
   }, [])
@@ -426,6 +435,15 @@ export default function SettingsPage() {
         }
     });
   }
+  
+  const handleProcessingSettingsChange = (field: keyof ProcessingSettings, value: boolean) => {
+    startTransition(async () => {
+        const newSettings = { ...processingSettings, [field]: value };
+        await updateProcessingSettings(newSettings);
+        setProcessingSettings(newSettings);
+        toast({ title: "Processing Settings Saved", description: "Your file processing rules have been updated." });
+    });
+  }
 
 
   if (loading || user?.role !== 'admin' || brandingLoading) {
@@ -509,6 +527,27 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
       
+      <Card>
+        <CardHeader>
+          <CardTitle>File Processing</CardTitle>
+          <CardDescription>Configure rules for how incoming files are handled.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="flex flex-row items-start space-x-4 rounded-lg border p-4">
+                <Switch
+                    id="auto-trim-chars"
+                    checked={processingSettings.autoTrimInvalidChars}
+                    onCheckedChange={(checked) => handleProcessingSettingsChange('autoTrimInvalidChars', checked)}
+                    disabled={isPending}
+                />
+                <div className="flex-1 space-y-1">
+                    <Label htmlFor="auto-trim-chars">Auto-fix invalid filenames</Label>
+                    <p className="text-xs text-muted-foreground">Automatically remove leading, trailing, and multiple consecutive spaces from filenames upon import.</p>
+                </div>
+            </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Failure Reason Management</CardTitle>
@@ -883,7 +922,7 @@ export default function SettingsPage() {
                       )}
                     </div>
                     <div className="flex flex-col sm:flex-row gap-2">
-                        <Input id="favicon-upload" type="file" accept="image/png, image/jpeg, image/svg+xml, image/x-icon" onChange={handleFaviconUpload} className="hidden" disabled={isPending} />
+                        <Input id="favicon-upload" type="file" accept="image/png, image/jpeg, image/svg+xml, image/x-icon, image/vnd.microsoft.icon" onChange={handleFaviconUpload} className="hidden" disabled={isPending} />
                         <Button asChild variant="outline" disabled={isPending}>
                             <label htmlFor="favicon-upload">
                                 <UploadCloud className="mr-2 h-4 w-4" />
@@ -946,3 +985,5 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
+
+    

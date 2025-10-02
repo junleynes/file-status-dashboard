@@ -44,6 +44,10 @@ export type CleanupSettings = {
   timeout: CleanupRule;
 }
 
+export type ProcessingSettings = {
+  autoTrimInvalidChars: boolean;
+}
+
 export type BrandingSettings = {
   brandName: string;
   logo: string | null;
@@ -68,6 +72,9 @@ export type Database = {
     monitoredExtensions: string[];
     fileStatuses: FileStatus[];
     cleanupSettings: CleanupSettings;
+    processingSettings: ProcessingSettings;
     failureRemark: string;
     smtpSettings: SmtpSettings;
 }
+
+    
