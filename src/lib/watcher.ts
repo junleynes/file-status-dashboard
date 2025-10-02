@@ -45,53 +45,62 @@ async function pollDirectories() {
     const filesInImport = await fs.readdir(importPath).catch(() => [] as string[]);
     const filesInFailed = await fs.readdir(failedPath).catch(() => [] as string[]);
     
-    // --- Pass 1: Handle Filename Cleanup in Import ---
+    // --- Pass 1: Handle Auto-Fix for files in Rejected folder ---
     if (autoTrimInvalidChars) {
-        for (const originalFileName of filesInImport) {
-            const cleanedFileName = cleanFileName(originalFileName);
-            if (originalFileName !== cleanedFileName) {
-                const oldPath = path.join(importPath, originalFileName);
-                const newPath = path.join(importPath, cleanedFileName);
-                
-                try {
-                    // Check if a file with the cleaned name already exists
-                    await fs.access(newPath);
-                    console.log(`[${new Date().toISOString()}] LOG: Auto-rename skipped for "${originalFileName}" because "${cleanedFileName}" already exists.`);
-                } catch (e) {
-                    // If it doesn't exist, we can rename it
-                    try {
-                        await fs.rename(oldPath, newPath);
-                        console.log(`[${new Date().toISOString()}] LOG: Auto-renamed "${originalFileName}" to "${cleanedFileName}".`);
-                        // The loop will now pick up the cleaned file name in the next full pass.
-                        // We must add a placeholder record so it doesn't get re-processed as 'new' immediately.
-                        const newFile: FileStatus = {
-                            id: `file-${Date.now()}-${Math.random()}`,
-                            name: cleanedFileName,
-                            status: 'processing',
-                            source: db.monitoredPaths.import.name,
-                            lastUpdated: new Date().toISOString(),
-                            remarks: `Auto-renamed from "${originalFileName}"`
-                        };
-                        db.fileStatuses.unshift(newFile);
-                        hasDbChanged = true;
+      for (const originalFileName of filesInFailed) {
+          const cleanedFileName = cleanFileName(originalFileName);
+          if (originalFileName !== cleanedFileName) {
+              const oldPath = path.join(failedPath, originalFileName);
+              const newPath = path.join(importPath, cleanedFileName);
+              
+              try {
+                  // Check if a file with the cleaned name already exists in import
+                  await fs.access(newPath);
+                  console.log(`[${new Date().toISOString()}] LOG: Auto-fix and retry skipped for "${originalFileName}" because "${cleanedFileName}" already exists in the import folder.`);
+              } catch (e) {
+                  // If it doesn't exist in import, we can move and rename it
+                  try {
+                      await fs.rename(oldPath, newPath);
+                      console.log(`[${new Date().toISOString()}] LOG: Auto-fixed and retrying "${originalFileName}" as "${cleanedFileName}".`);
+                      
+                      // Remove old status entry if it exists
+                      const oldIndex = db.fileStatuses.findIndex(f => f.name === originalFileName);
+                      if (oldIndex > -1) {
+                          db.fileStatuses.splice(oldIndex, 1);
+                      }
 
-                    } catch (renameError) {
-                        console.error(`[${new Date().toISOString()}] ERROR: Failed to auto-rename "${originalFileName}":`, renameError);
-                    }
-                }
-            }
-        }
-        // Re-read the import directory after potential renames
-        filesInImport.splice(0, filesInImport.length, ...(await fs.readdir(importPath).catch(() => [] as string[])));
+                      // Create a new status entry for the cleaned file
+                      const newFile: FileStatus = {
+                          id: `file-${Date.now()}-${Math.random()}`,
+                          name: cleanedFileName,
+                          status: 'processing',
+                          source: db.monitoredPaths.import.name,
+                          lastUpdated: new Date().toISOString(),
+                          remarks: `Auto-renamed from "${originalFileName}" and retried.`
+                      };
+                      db.fileStatuses.unshift(newFile);
+                      hasDbChanged = true;
+
+                      // Remove the file from filesInFailed array so it's not processed in the next pass
+                      const indexToRemove = filesInFailed.indexOf(originalFileName);
+                      if(indexToRemove > -1) {
+                        filesInFailed.splice(indexToRemove, 1);
+                      }
+
+                  } catch (renameError) {
+                      console.error(`[${new Date().toISOString()}] ERROR: Failed to auto-fix and retry "${originalFileName}":`, renameError);
+                  }
+              }
+          }
+      }
     }
-
 
     const filesInImportSet = new Set(filesInImport);
     const filesInFailedSet = new Set(filesInFailed);
     const failureRemark = db.failureRemark || "File processing failed.";
 
 
-    // --- Pass 2: Handle failed files (Highest Priority) ---
+    // --- Pass 2: Handle failed files (that were not auto-fixed) ---
     for (const fileName of filesInFailed) {
       if (monitoredExtensions.size > 0 && !monitoredExtensions.has(path.extname(fileName).toLowerCase())) {
         continue; // Skip files that are not monitored
@@ -138,9 +147,11 @@ async function pollDirectories() {
         console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" marked as processing (newly detected).`);
         hasDbChanged = true;
       } else if (fileInDb.status === 'published' || fileInDb.status === 'failed' || fileInDb.status === 'timed-out') {
+        // This case handles a file being manually moved back to import
         fileInDb.status = 'processing';
         fileInDb.lastUpdated = new Date().toISOString();
-        fileInDb.remarks = fileInDb.remarks?.includes('Auto-renamed') ? fileInDb.remarks : ''; // Keep auto-rename remark
+        // Clear remarks unless it was just auto-renamed
+        fileInDb.remarks = fileInDb.remarks?.includes('Auto-renamed') ? fileInDb.remarks : 'Retrying file manually.';
         console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" marked as processing (re-imported).`);
         hasDbChanged = true;
       }
