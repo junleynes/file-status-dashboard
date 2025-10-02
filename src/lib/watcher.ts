@@ -17,14 +17,17 @@ const cleanFileName = (fileName: string): string => {
     // Define invalid characters using a regular expression.
     // This includes: * " / \ < > : | ?
     const invalidChars = /[*"\/\\<>:|\?]/g;
+    const extension = path.extname(fileName);
+    const baseName = path.basename(fileName, extension);
     
-    // 1. Remove all invalid characters
-    let cleaned = fileName.replace(invalidChars, '');
+    // 1. Remove all invalid characters from the base name
+    let cleanedBase = baseName.replace(invalidChars, '');
     
-    // 2. Replace multiple spaces with a single space and trim leading/trailing spaces
-    cleaned = cleaned.replace(/\s+/g, ' ').trim();
+    // 2. Replace multiple spaces with a single space and trim leading/trailing spaces from the base name
+    cleanedBase = cleanedBase.replace(/\s+/g, ' ').trim();
     
-    return cleaned;
+    // 3. Re-assemble the filename
+    return cleanedBase + extension;
 };
 
 
