@@ -23,5 +23,20 @@ export async function readDb(): Promise<Database> {
 }
 
 export async function writeDb(data: Database): Promise<void> {
-  await fs.writeFile(dbPath, JSON.stringify(data, null, 2), 'utf-8');
+  const tempPath = dbPath + `.tmp-${process.pid}-${Date.now()}`;
+  try {
+    await fs.writeFile(tempPath, JSON.stringify(data, null, 2), 'utf-8');
+    await fs.rename(tempPath, dbPath);
+  } catch (error) {
+    console.error("Error during atomic write of database:", error);
+    // Attempt to clean up the temporary file if it exists
+    try {
+      await fs.unlink(tempPath);
+    } catch (cleanupError: any) {
+      if (cleanupError.code !== 'ENOENT') {
+        console.error("Error cleaning up temporary database file:", cleanupError);
+      }
+    }
+    throw error; // Re-throw the original error
+  }
 }
