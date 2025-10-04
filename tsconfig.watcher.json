@@ -15,7 +15,6 @@
   "include": [
     "src/lib/watcher.ts",
     "src/lib/db.ts",
-    "src/lib/actions.ts",
     "src/types/index.ts"
   ],
   "exclude": [

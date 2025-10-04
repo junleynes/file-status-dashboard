@@ -1,11 +1,10 @@
 
-
 'use server';
 
-import { readDb, writeDb } from './db';
 import * as path from 'path';
 import * as fs from 'fs/promises';
-import type { Database, FileStatus } from '../types';
+import * as db from './db';
+import type { FileStatus } from '../types';
 
 const POLLING_INTERVAL = 5000; // 5 seconds
 const CLEANUP_INTERVAL = 60000; // 1 minute
@@ -14,32 +13,27 @@ let isCleaning = false;
 
 // Helper function to clean filenames
 const cleanFileName = (fileName: string): string => {
-    // Define invalid characters using a regular expression.
-    // This includes: * " / \ < > : | ? and all whitespace characters
     const invalidCharsAndSpaces = /[*"\/\\<>:|\?\s]/g;
     const extension = path.extname(fileName);
     const baseName = path.basename(fileName, extension);
-    
-    // Remove all invalid characters and spaces from the base name
     const cleanedBase = baseName.replace(invalidCharsAndSpaces, '');
-    
-    // Re-assemble the filename
     return cleanedBase + extension;
 };
 
 
 async function pollDirectories() {
-  if (isPolling) {
-    return;
-  }
+  if (isPolling) return;
   isPolling = true;
 
   try {
-    const db = await readDb();
-    const importPath = db.monitoredPaths.import.path;
-    const failedPath = db.monitoredPaths.failed.path;
-    const monitoredExtensions = new Set(db.monitoredExtensions.map(ext => ext.toLowerCase()));
-    const { autoTrimInvalidChars, autoExpandPrefixes } = db.processingSettings || { autoTrimInvalidChars: false, autoExpandPrefixes: false };
+    const monitoredPaths = await db.getMonitoredPaths();
+    const monitoredExtensionsArray = await db.getMonitoredExtensions();
+    const processingSettings = await db.getProcessingSettings();
+    
+    const importPath = monitoredPaths.import.path;
+    const failedPath = monitoredPaths.failed.path;
+    const monitoredExtensions = new Set(monitoredExtensionsArray.map(ext => ext.toLowerCase()));
+    const { autoTrimInvalidChars, autoExpandPrefixes } = processingSettings;
 
     if (!importPath || !failedPath) {
         console.error('[Polling] Monitored paths are not configured. Skipping poll.');
@@ -47,7 +41,9 @@ async function pollDirectories() {
         return;
     }
     
-    let hasDbChanged = false;
+    let dbWrites: Promise<any>[] = [];
+    let filesToUpsert: FileStatus[] = [];
+    let filesToDelete: string[] = [];
 
     // --- Files on Disk ---
     let filesInFailed = await fs.readdir(failedPath).catch(() => [] as string[]);
@@ -60,24 +56,22 @@ async function pollDirectories() {
 
       const fileExt = path.extname(originalFileName).toLowerCase();
       const extWithoutDot = fileExt.substring(1);
+      
+      const shouldMonitor = monitoredExtensions.size === 0 || monitoredExtensions.has(extWithoutDot);
+      if (!shouldMonitor) continue;
 
-      // Workflow 1: Auto Expand Prefixes
-      if (autoExpandPrefixes && (monitoredExtensions.size === 0 || monitoredExtensions.has(extWithoutDot))) {
+      if (autoExpandPrefixes) {
           const parts = path.basename(originalFileName, fileExt).split('_');
           if (parts.length === 4 && parts[1].length === 6 && parts[2].length === 6 && parts[3].length === 5) {
               const prefixPairsStr = parts[0];
               if (prefixPairsStr.length > 0 && prefixPairsStr.length % 2 === 0) {
                   const validPairs = [];
                   for (let i = 0; i < prefixPairsStr.length; i += 2) {
-                      const pair = prefixPairsStr.substring(i, i + 2);
-                      if (['P', 'B', 'C'].includes(pair[0].toUpperCase())) {
-                          validPairs.push(pair);
-                      }
+                      if (['P', 'B', 'C'].includes(prefixPairsStr[i].toUpperCase())) validPairs.push(prefixPairsStr.substring(i, i + 2));
                   }
 
-                  // FIX: Only expand if there are multiple valid pairs to avoid infinite loops
                   if (validPairs.length > 1) {
-                      console.log(`[${new Date().toISOString()}] LOG: Prefix expansion triggered for "${originalFileName}". Valid pairs: ${validPairs.join(', ')}.`);
+                      console.log(`[LOG] Prefix expansion for "${originalFileName}". Pairs: ${validPairs.join(', ')}.`);
                       const originalFilePath = path.join(failedPath, originalFileName);
                       let allCopiesSucceeded = true;
 
@@ -86,50 +80,31 @@ async function pollDirectories() {
                           const newFilePath = path.join(importPath, newFileName);
                           try {
                               await fs.copyFile(originalFilePath, newFilePath);
-                              console.log(`[${new Date().toISOString()}] LOG: Created copy "${newFileName}" in import folder.`);
-                              
-                              const newFile: FileStatus = {
-                                id: `file-${Date.now()}-${Math.random()}`,
-                                name: newFileName,
-                                status: 'processing',
-                                source: db.monitoredPaths.import.name,
-                                lastUpdated: new Date().toISOString(),
-                                remarks: `Auto-expanded from ${originalFileName}`
-                              };
-                              db.fileStatuses.unshift(newFile);
-                              hasDbChanged = true;
-
+                              filesToUpsert.push({
+                                id: `file-${Date.now()}-${Math.random()}`, name: newFileName, status: 'processing',
+                                source: monitoredPaths.import.name, lastUpdated: new Date().toISOString(), remarks: `Auto-expanded from ${originalFileName}`
+                              });
                           } catch (copyError) {
-                              console.error(`[${new Date().toISOString()}] ERROR: Failed to create copy "${newFileName}":`, copyError);
-                              allCopiesSucceeded = false;
-                              break; 
+                              console.error(`[ERROR] Failed to create copy "${newFileName}":`, copyError);
+                              allCopiesSucceeded = false; break;
                           }
                       }
 
                       if (allCopiesSucceeded) {
                           try {
                               await fs.unlink(originalFilePath);
-                              console.log(`[${new Date().toISOString()}] LOG: Deleted original file "${originalFileName}" after expansion.`);
                               processedByAutomation.add(originalFileName);
-                              
-                              // FIX: Remove original file from the status list
-                              const originalFileIndex = db.fileStatuses.findIndex(f => f.name === originalFileName);
-                              if (originalFileIndex > -1) {
-                                  db.fileStatuses.splice(originalFileIndex, 1);
-                                  hasDbChanged = true;
-                                  console.log(`[${new Date().toISOString()}] LOG: Removed original file status for "${originalFileName}" from dashboard.`);
-                              }
+                              filesToDelete.push(originalFileName);
                           } catch (deleteError) {
-                              console.error(`[${new Date().toISOString()}] ERROR: Failed to delete original file "${originalFileName}" after copy:`, deleteError);
+                              console.error(`[ERROR] Failed to delete original expanded file "${originalFileName}":`, deleteError);
                           }
                       }
-                      continue; // Move to the next file in the loop
+                      continue; 
                   }
               }
           }
       }
 
-      // Workflow 2: Auto-fix invalid characters (only if not handled by prefix expansion)
       if (autoTrimInvalidChars) {
         const cleanedFileName = cleanFileName(originalFileName);
         if (originalFileName !== cleanedFileName) {
@@ -138,30 +113,18 @@ async function pollDirectories() {
             
             try {
                 await fs.access(newPath);
-                console.log(`[${new Date().toISOString()}] LOG: Auto-fix and retry skipped for "${originalFileName}" because "${cleanedFileName}" already exists in the import folder.`);
             } catch (e) {
                 try {
                     await fs.rename(oldPath, newPath);
-                    console.log(`[${new Date().toISOString()}] LOG: Auto-fixed and retrying "${originalFileName}" as "${cleanedFileName}".`);
-                    
-                    const oldIndex = db.fileStatuses.findIndex(f => f.name === originalFileName);
-                    if (oldIndex > -1) {
-                        db.fileStatuses.splice(oldIndex, 1);
-                    }
-
-                    const newFile: FileStatus = {
-                        id: `file-${Date.now()}-${Math.random()}`,
-                        name: cleanedFileName,
-                        status: 'processing',
-                        source: db.monitoredPaths.import.name,
-                        lastUpdated: new Date().toISOString(),
+                    filesToDelete.push(originalFileName);
+                    filesToUpsert.push({
+                        id: `file-${Date.now()}-${Math.random()}`, name: cleanedFileName, status: 'processing',
+                        source: monitoredPaths.import.name, lastUpdated: new Date().toISOString(),
                         remarks: `Auto-renamed from "${originalFileName}" and retried.`
-                    };
-                    db.fileStatuses.unshift(newFile);
-                    hasDbChanged = true;
+                    });
                     processedByAutomation.add(originalFileName);
                 } catch (renameError) {
-                    console.error(`[${new Date().toISOString()}] ERROR: Failed to auto-fix and retry "${originalFileName}":`, renameError);
+                    console.error(`[ERROR] Failed to auto-fix and retry "${originalFileName}":`, renameError);
                 }
             }
         }
@@ -173,85 +136,71 @@ async function pollDirectories() {
     filesInFailed = await fs.readdir(failedPath).catch(() => [] as string[]);
     const filesInImportSet = new Set(filesInImport);
     const filesInFailedSet = new Set(filesInFailed);
-    const failureRemark = db.failureRemark || "File processing failed.";
+    const failureRemark = await db.getFailureRemark();
+    
+    const currentFileStatuses = await db.getFileStatuses();
+    const currentFileStatusesMap = new Map(currentFileStatuses.map(f => [f.name, f]));
 
+    // --- Pass 2: Update statuses based on current file locations ---
+    for (const [fileName, file] of currentFileStatusesMap.entries()) {
+      const isMonitored = monitoredExtensions.size === 0 || monitoredExtensions.has(path.extname(fileName).toLowerCase().substring(1));
+      if (!isMonitored) continue;
+      
+      const inImport = filesInImportSet.has(fileName);
+      const inFailed = filesInFailedSet.has(fileName);
 
-    // --- Pass 2: Handle failed files (that were not auto-fixed) ---
-    for (const fileName of filesInFailed) {
-      if (monitoredExtensions.size > 0 && !monitoredExtensions.has(path.extname(fileName).toLowerCase().substring(1))) {
-        continue; // Skip files that are not monitored
-      }
-      let fileInDb = db.fileStatuses.find(f => f.name === fileName);
-      if (!fileInDb) {
-         fileInDb = {
-            id: `file-${Date.now()}-${Math.random()}`,
-            name: fileName,
-            status: 'failed',
-            source: db.monitoredPaths.failed.name,
-            lastUpdated: new Date().toISOString(),
-            remarks: failureRemark
-         };
-         db.fileStatuses.unshift(fileInDb);
-         console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" marked as failed (detected in rejected folder).`);
-         hasDbChanged = true;
-      } else if (fileInDb.status !== 'failed') {
-        fileInDb.status = 'failed';
-        fileInDb.remarks = failureRemark;
-        fileInDb.lastUpdated = new Date().toISOString();
-        console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" updated to failed.`);
-        hasDbChanged = true;
+      if (file.status === 'processing' && !inImport && !inFailed) {
+        file.status = 'published';
+        file.remarks = 'File processed successfully.';
+        file.lastUpdated = new Date().toISOString();
+        filesToUpsert.push(file);
+      } else if (inFailed && file.status !== 'failed') {
+        file.status = 'failed';
+        file.remarks = failureRemark;
+        file.lastUpdated = new Date().toISOString();
+        filesToUpsert.push(file);
+      } else if (inImport && ['published', 'failed', 'timed-out'].includes(file.status)) {
+        file.status = 'processing';
+        file.remarks = file.remarks?.includes('Auto-') ? file.remarks : 'Retrying file manually.';
+        file.lastUpdated = new Date().toISOString();
+        filesToUpsert.push(file);
       }
     }
 
-    // --- Pass 3: Handle new and re-processed files in Import ---
-    for (const fileName of filesInImport) {
-       if (monitoredExtensions.size > 0 && !monitoredExtensions.has(path.extname(fileName).toLowerCase().substring(1))) {
-            continue; // Skip files that are not monitored
+    // --- Pass 3: Detect new files ---
+    const allKnownFiles = new Set(currentFileStatusesMap.keys());
+    const newImportFiles = filesInImport.filter(f => !allKnownFiles.has(f));
+    const newFailedFiles = filesInFailed.filter(f => !allKnownFiles.has(f));
+
+    for (const fileName of newImportFiles) {
+       const isMonitored = monitoredExtensions.size === 0 || monitoredExtensions.has(path.extname(fileName).toLowerCase().substring(1));
+       if (isMonitored) {
+         filesToUpsert.push({
+           id: `file-${Date.now()}-${Math.random()}`, name: fileName, status: 'processing',
+           source: monitoredPaths.import.name, lastUpdated: new Date().toISOString(), remarks: ''
+         });
        }
-        
-      const fileInDb = db.fileStatuses.find(f => f.name === fileName);
-      if (!fileInDb) {
-        const newFile: FileStatus = {
-          id: `file-${Date.now()}-${Math.random()}`,
-          name: fileName,
-          status: 'processing',
-          source: db.monitoredPaths.import.name,
-          lastUpdated: new Date().toISOString(),
-          remarks: ''
-        };
-        db.fileStatuses.unshift(newFile);
-        console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" marked as processing (newly detected).`);
-        hasDbChanged = true;
-      } else if (fileInDb.status === 'published' || fileInDb.status === 'failed' || fileInDb.status === 'timed-out') {
-        // This case handles a file being manually moved back to import
-        fileInDb.status = 'processing';
-        fileInDb.lastUpdated = new Date().toISOString();
-        // Clear remarks unless it was just auto-renamed/expanded
-        if (!fileInDb.remarks?.includes('Auto-')) {
-            fileInDb.remarks = 'Retrying file manually.';
-        }
-        console.log(`[${new Date().toISOString()}] LOG: Status Change - "${fileName}" marked as processing (re-imported).`);
-        hasDbChanged = true;
+    }
+    for (const fileName of newFailedFiles) {
+      const isMonitored = monitoredExtensions.size === 0 || monitoredExtensions.has(path.extname(fileName).toLowerCase().substring(1));
+      if (isMonitored) {
+         filesToUpsert.push({
+           id: `file-${Date.now()}-${Math.random()}`, name: fileName, status: 'failed',
+           source: monitoredPaths.failed.name, lastUpdated: new Date().toISOString(), remarks: failureRemark
+         });
       }
+    }
+
+    // --- Commit all DB changes at once ---
+    if (filesToUpsert.length > 0) {
+      dbWrites.push(db.bulkUpsertFileStatuses(filesToUpsert));
+    }
+    if (filesToDelete.length > 0) {
+      filesToDelete.forEach(name => dbWrites.push(db.deleteFileStatus(name)));
     }
     
-    // --- Pass 4: Check for published files ---
-    for (const file of db.fileStatuses) {
-        if (file.status === 'processing') {
-            if (!filesInImportSet.has(file.name) && !filesInFailedSet.has(file.name)) {
-                file.status = 'published';
-                 const successRemark = 'File processed successfully.';
-                file.remarks = file.remarks ? `${file.remarks}; ${successRemark}` : successRemark;
-                file.lastUpdated = new Date().toISOString();
-                console.log(`[${new Date().toISOString()}] LOG: Status Change - "${file.name}" marked as published.`);
-                hasDbChanged = true;
-            }
-        }
-    }
-
-    if (hasDbChanged) {
-        db.fileStatuses.sort((a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime());
-        await writeDb(db);
+    if (dbWrites.length > 0) {
+      await Promise.all(dbWrites);
     }
 
   } catch (error) {
@@ -262,41 +211,38 @@ async function pollDirectories() {
 }
 
 async function cleanupJob() {
-  if (isCleaning) {
-    return;
-  }
+  if (isCleaning) return;
   isCleaning = true;
 
   try {
-    const db = await readDb();
-    const { cleanupSettings, fileStatuses, monitoredPaths } = db;
+    const cleanupSettings = await db.getCleanupSettings();
+    const monitoredPaths = await db.getMonitoredPaths();
     const now = new Date();
-    let hasDbChanged = false;
+    let dbChanged = false;
 
     const getMilliseconds = (value: string, unit: 'hours' | 'days') => {
         const numValue = parseInt(value, 10);
         if (isNaN(numValue)) return 0;
         if (unit === 'hours') return numValue * 60 * 60 * 1000;
-        if (unit === 'days') return numValue * 24 * 60 * 60 * 1000;
-        return 0;
+        return numValue * 24 * 60 * 60 * 1000;
     };
     
-    const originalFileCount = fileStatuses.length;
-
     // 1. Flag timed-out files
     if (cleanupSettings.timeout.enabled) {
       const timeoutMs = getMilliseconds(cleanupSettings.timeout.value, cleanupSettings.timeout.unit);
       if (timeoutMs > 0) {
-        for (const file of fileStatuses) {
-          if (file.status === 'processing') {
-            const lastUpdated = new Date(file.lastUpdated);
-            if (now.getTime() - lastUpdated.getTime() > timeoutMs) {
+        const filesToCheck = (await db.getFileStatuses()).filter(f => f.status === 'processing');
+        const filesToUpdate: FileStatus[] = [];
+        for (const file of filesToCheck) {
+            if (now.getTime() - new Date(file.lastUpdated).getTime() > timeoutMs) {
               file.status = 'timed-out';
               file.lastUpdated = now.toISOString();
-              console.log(`[${new Date().toISOString()}] LOG: Status Change - "${file.name}" marked as timed-out.`);
-              hasDbChanged = true;
+              filesToUpdate.push(file);
+              dbChanged = true;
             }
-          }
+        }
+        if (filesToUpdate.length > 0) {
+          await db.bulkUpsertFileStatuses(filesToUpdate);
         }
       }
     }
@@ -305,18 +251,8 @@ async function cleanupJob() {
     if (cleanupSettings.status.enabled) {
       const statusMaxAgeMs = getMilliseconds(cleanupSettings.status.value, cleanupSettings.status.unit);
       if (statusMaxAgeMs > 0) {
-        const newFileStatuses = fileStatuses.filter(file => {
-            const lastUpdated = new Date(file.lastUpdated);
-            const shouldKeep = now.getTime() - lastUpdated.getTime() <= statusMaxAgeMs;
-            if (!shouldKeep) {
-                 console.log(`[${new Date().toISOString()}] LOG: Removing old status entry from dashboard: ${file.name}`);
-            }
-            return shouldKeep;
-        });
-        if (newFileStatuses.length !== fileStatuses.length) {
-            db.fileStatuses = newFileStatuses;
-            hasDbChanged = true;
-        }
+        const changes = await db.deleteFileStatusesByAge(statusMaxAgeMs);
+        if (changes > 0) dbChanged = true;
       }
     }
     
@@ -332,59 +268,40 @@ async function cleanupJob() {
                     const filePath = path.join(failedPath, fileName);
                     try {
                         const stats = await fs.stat(filePath);
-                        const fileCreationTime = stats.birthtime; // Use creation time
-                        if (now.getTime() - fileCreationTime.getTime() > fileMaxAgeMs) {
+                        if (now.getTime() - stats.birthtime.getTime() > fileMaxAgeMs) {
                             await fs.unlink(filePath);
-                            console.log(`[${new Date().toISOString()}] LOG: File Deletion - Deleted old file from failed directory: ${fileName}`);
+                            console.log(`[Cleanup] Deleted old file: ${fileName}`);
                         }
                     } catch (statError: any) {
-                         if (statError.code !== 'ENOENT') {
-                           console.error(`[Cleanup] Error getting stats for file ${filePath}:`, statError.message);
-                         }
+                         if (statError.code !== 'ENOENT') console.error(`[Cleanup] Error getting stats for ${filePath}:`, statError);
                     }
                 }
             } catch (readDirError: any) {
-                 if (readDirError.code !== 'ENOENT') {
-                    console.error(`[Cleanup] Error reading failed directory ${failedPath}:`, readDirError.message);
-                 }
+                 if (readDirError.code !== 'ENOENT') console.error(`[Cleanup] Error reading failed directory ${failedPath}:`, readDirError);
             }
         }
     }
 
-
-    if (hasDbChanged || db.fileStatuses.length !== originalFileCount) {
-      await writeDb(db);
-    }
-
   } catch (error) {
-    console.error('[Cleanup] An error occurred during the cleanup job:', error);
+    console.error('[Cleanup] An error occurred:', error);
   } finally {
     isCleaning = false;
   }
 }
 
-
 // --- Service Initialization ---
 async function initializePollingService() {
   console.log('[Service] Initializing polling and cleanup services...');
-  const db = await readDb();
-  const importPath = db.monitoredPaths.import.path;
-  const failedPath = db.monitoredPaths.failed.path;
-
-  if (!importPath || !failedPath) {
-    console.error("[Service] Import or Failed paths are not configured. Services cannot start.");
-    return;
-  }
-  
   try {
-      await fs.access(importPath);
-      await fs.access(failedPath);
-      console.log(`[Service] Watching Import: ${importPath}`);
-      console.log(`[Service] Watching Failed: ${failedPath}`);
-      setInterval(pollDirectories, POLLING_INTERVAL);
-      setInterval(cleanupJob, CLEANUP_INTERVAL);
-      console.log(`[Service] Polling started. Polling every ${POLLING_INTERVAL / 1000} seconds.`);
-      console.log(`[Service] Cleanup job started. Running every ${CLEANUP_INTERVAL / 1000} seconds.`);
+    const monitoredPaths = await db.getMonitoredPaths();
+    await fs.access(monitoredPaths.import.path);
+    await fs.access(monitoredPaths.failed.path);
+    console.log(`[Service] Watching Import: ${monitoredPaths.import.path}`);
+    console.log(`[Service] Watching Failed: ${monitoredPaths.failed.path}`);
+    setInterval(pollDirectories, POLLING_INTERVAL);
+    setInterval(cleanupJob, CLEANUP_INTERVAL);
+    console.log(`[Service] Polling started every ${POLLING_INTERVAL / 1000}s.`);
+    console.log(`[Service] Cleanup job runs every ${CLEANUP_INTERVAL / 1000}s.`);
   } catch(error: any) {
        console.error(`[Service] A monitored directory is not accessible. Please check paths in settings. Error: ${error.message}`);
   }
@@ -393,6 +310,9 @@ async function initializePollingService() {
 // Start the service
 (async () => {
     try {
+        // The db module initializes itself on first import
+        console.log("[Service] Waiting for DB to initialize...");
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Short delay to ensure db is ready
         await initializePollingService();
     } catch (error) {
         console.error("[Service] Failed to start services:", error);

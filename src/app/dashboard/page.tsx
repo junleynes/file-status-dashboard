@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { FileStatusTable } from "@/components/file-status-table";
 import { useAuth } from "@/hooks/use-auth";
 import type { FileStatus } from "@/types";
-import { Trash2, Search, X, CheckCircle2, AlertTriangle, Loader, Clock, Info } from "lucide-react";
+import { Trash2, Search, X, CheckCircle2, AlertTriangle, Loader, Clock, Info, Trash } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { clearAllFileStatuses, retryFile, renameFile, checkWriteAccess } from "@/lib/actions";
+import { clearAllFileStatuses, retryFile, renameFile, checkWriteAccess, deleteFailedFile } from "@/lib/actions";
 import { readDb } from "@/lib/db";
 import {
   Dialog,
@@ -23,6 +23,16 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 
 export default function DashboardPage() {
@@ -34,6 +44,8 @@ export default function DashboardPage() {
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
   const [fileToRename, setFileToRename] = useState<FileStatus | null>(null);
   const [newFileName, setNewFileName] = useState("");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<FileStatus | null>(null);
   const { toast } = useToast();
   const [canWrite, setCanWrite] = useState(true);
 
@@ -44,14 +56,12 @@ export default function DashboardPage() {
     };
     fetchFiles();
 
-    // Set up an interval to poll for changes
-    const intervalId = setInterval(fetchFiles, 5000); // Poll every 5 seconds
+    const intervalId = setInterval(fetchFiles, 5000); 
 
     return () => clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
-    // Check write access when the component mounts
     async function verifyAccess() {
       const { canWrite } = await checkWriteAccess();
       setCanWrite(canWrite);
@@ -118,6 +128,33 @@ export default function DashboardPage() {
     });
   };
 
+  const handleOpenDeleteDialog = (file: FileStatus) => {
+    setFileToDelete(file);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDelete = () => {
+    if (!fileToDelete) return;
+
+    startTransition(async () => {
+      const result = await deleteFailedFile(fileToDelete.name);
+      if (result.success) {
+        toast({
+          title: "File Deleted",
+          description: `"${fileToDelete.name}" has been permanently deleted.`,
+        });
+      } else {
+        toast({
+          title: "Delete Failed",
+          description: result.error,
+          variant: "destructive",
+        });
+      }
+      setIsDeleteDialogOpen(false);
+      setFileToDelete(null);
+    });
+  };
+
 
   const filteredFiles = useMemo(() => {
     return files
@@ -156,39 +193,39 @@ export default function DashboardPage() {
 
        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <Card className="bg-yellow-500/20 dark:bg-yellow-500/10 border-yellow-500 text-yellow-900 dark:text-yellow-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 md:p-6 md:pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 md:p-4">
               <CardTitle className="text-sm font-medium">Processing</CardTitle>
               <Loader className="h-4 w-4 text-yellow-500 animate-spin" />
             </CardHeader>
-            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
-                <div className="text-2xl font-bold">{statusCounts.processing || 0}</div>
+            <CardContent className="p-3 pt-0 md:p-4 md:pt-0">
+                <div className="text-xl md:text-2xl font-bold">{statusCounts.processing || 0}</div>
             </CardContent>
           </Card>
           <Card className="bg-green-500/20 dark:bg-green-500/10 border-green-500 text-green-900 dark:text-green-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 md:p-6 md:pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 md:p-4">
               <CardTitle className="text-sm font-medium">Published</CardTitle>
               <CheckCircle2 className="h-4 w-4 text-green-500" />
             </CardHeader>
-            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
-                <div className="text-2xl font-bold">{statusCounts.published || 0}</div>
+            <CardContent className="p-3 pt-0 md:p-4 md:pt-0">
+                <div className="text-xl md:text-2xl font-bold">{statusCounts.published || 0}</div>
             </CardContent>
           </Card>
           <Card className="bg-red-500/20 dark:bg-red-500/10 border-red-500 text-red-900 dark:text-red-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 md:p-6 md:pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 md:p-4">
               <CardTitle className="text-sm font-medium">Failed</CardTitle>
               <AlertTriangle className="h-4 w-4 text-red-500" />
             </CardHeader>
-            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
-                 <div className="text-2xl font-bold">{statusCounts.failed || 0}</div>
+            <CardContent className="p-3 pt-0 md:p-4 md:pt-0">
+                 <div className="text-xl md:text-2xl font-bold">{statusCounts.failed || 0}</div>
             </CardContent>
           </Card>
           <Card className="bg-orange-500/20 dark:bg-orange-500/10 border-orange-500 text-orange-900 dark:text-orange-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 md:p-6 md:pb-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-2 md:p-4">
               <CardTitle className="text-sm font-medium">Timed-out</CardTitle>
               <Clock className="h-4 w-4 text-orange-500" />
             </CardHeader>
-            <CardContent className="p-3 pt-0 md:p-6 md:pt-0">
-                 <div className="text-2xl font-bold">{statusCounts['timed-out'] || 0}</div>
+            <CardContent className="p-3 pt-0 md:p-4 md:pt-0">
+                 <div className="text-xl md:text-2xl font-bold">{statusCounts['timed-out'] || 0}</div>
             </CardContent>
           </Card>
        </div>
@@ -233,7 +270,9 @@ export default function DashboardPage() {
             files={filteredFiles}
             onRetry={handleRetry}
             onRename={handleOpenRenameDialog}
+            onDelete={handleOpenDeleteDialog}
             isReadOnly={!canWrite}
+            userRole={user?.role}
           />
         </CardContent>
       </Card>
@@ -264,10 +303,24 @@ export default function DashboardPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the file <span className="font-bold">"{fileToDelete?.name}"</span> from the rejected folder and remove its status from the dashboard.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isPending} className="bg-destructive hover:bg-destructive/90">
+              {isPending ? 'Deleting...' : 'Yes, delete file'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </motion.div>
   );
 }
-
-    
-
-    

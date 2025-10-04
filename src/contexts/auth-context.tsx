@@ -3,8 +3,8 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import type { User } from '@/types';
-import { readDb } from '@/lib/db';
-import { addUser as addUserAction, removeUser as removeUserAction, updateUser as updateUserAction, verifyTwoFactorToken, validateUserCredentials, sendPasswordResetEmail as sendPasswordResetEmailAction } from '@/lib/actions';
+import * as db from '@/lib/db';
+import * as actions from '@/lib/actions';
 
 
 const CURRENT_USER_STORAGE_KEY = 'file-tracker-user';
@@ -16,7 +16,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<{ success: boolean; twoFactorRequired: boolean; requiresTwoFactorSetup: boolean; user?: User }>;
   completeTwoFactorLogin: (userId: string, token: string) => Promise<boolean>;
   logout: () => void;
-  addUser: (user: User) => Promise<boolean>;
+  addUser: (user: User) => Promise<{success: boolean, message?: string}>;
   removeUser: (userId: string) => Promise<void>;
   updateOwnPassword: (userId: string, currentPassword: string, newPassword: string) => Promise<boolean>;
   updateUser: (user: User) => Promise<void>;
@@ -32,14 +32,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refreshUsers = useCallback(async () => {
-    const db = await readDb();
-    setUsers(db.users);
+    const freshUsers = await db.getUsers();
+    setUsers(freshUsers);
   }, []);
 
   const refreshCurrentUser = useCallback(async () => {
      if (!user) return;
-     const db = await readDb();
-     const currentUser = db.users.find(u => u.id === user.id);
+     const currentUser = await db.getUserById(user.id);
      if(currentUser) {
         const { password: _, ...userToStore } = currentUser;
         localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(userToStore));
@@ -67,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshUsers]);
 
   const login = async (username: string, password: string): Promise<{ success: boolean; twoFactorRequired: boolean; requiresTwoFactorSetup: boolean; user?: User }> => {
-    const result = await validateUserCredentials(username, password);
+    const result = await actions.validateUserCredentials(username, password);
     
     if (result.success && result.user) {
       const userToLogin = result.user;
@@ -86,10 +85,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
   
   const completeTwoFactorLogin = async (userId: string, token: string): Promise<boolean> => {
-    const isValid = await verifyTwoFactorToken(userId, token);
+    const isValid = await actions.verifyTwoFactorToken(userId, token);
     if (isValid) {
-      const db = await readDb();
-      const userToLogin = db.users.find(u => u.id === userId);
+      const userToLogin = await db.getUserById(userId);
       if (userToLogin) {
         const { password: _, ...userToStore } = userToLogin;
         localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(userToStore));
@@ -106,34 +104,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
   
-  const addUser = async (newUser: User): Promise<boolean> => {
-    const result = await addUserAction(newUser);
+  const addUser = async (newUser: User): Promise<{ success: boolean; message?: string }> => {
+    const result = await actions.addUser(newUser);
     if (result.success) {
       await refreshUsers();
     }
-    return result.success;
+    return result;
   };
 
   const removeUser = async (userId: string) => {
-    await removeUserAction(userId);
+    await actions.removeUser(userId);
     await refreshUsers();
   };
   
   const updateOwnPassword = async (userId: string, currentPassword: string, newPassword: string): Promise<boolean> => {
-    const db = await readDb();
-    const userToUpdate = db.users.find(u => u.id === userId);
+    const userToUpdate = await db.getUserById(userId);
 
     if (!userToUpdate || userToUpdate.password !== currentPassword) {
       return false; // Current password does not match
     }
-
-    const updatedUsers = db.users.map(u => u.id === userId ? {...u, password: newPassword} : u);
-    await writeDb({...db, users: updatedUsers });
+    userToUpdate.password = newPassword;
+    await db.updateUser(userToUpdate);
     return true;
   };
 
   const updateUser = async (updatedUser: User) => {
-    await updateUserAction(updatedUser);
+    await actions.updateUser(updatedUser);
     await refreshUsers();
     await refreshCurrentUser();
   }

@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useTransition } from "react";
@@ -11,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MonitoredPath, MonitoredPaths, User, CleanupSettings, SmtpSettings, ProcessingSettings } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff, FileImage, Mail, Send, Wand2, Bot } from "lucide-react";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff, FileImage, Mail, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -26,7 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { readDb } from "@/lib/db";
+import * as db from "@/lib/db";
 import { 
     updateMonitoredPaths,
     addMonitoredExtension,
@@ -132,14 +131,14 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-        const db = await readDb();
-        setPaths(db.monitoredPaths);
-        setExtensions(db.monitoredExtensions);
-        setCleanupSettings(db.cleanupSettings);
-        setFailureRemark(db.failureRemark || '');
-        setInitialFailureRemark(db.failureRemark || '');
-        setSmtpSettings(db.smtpSettings || defaultSmtpSettings);
-        setProcessingSettings(db.processingSettings || defaultProcessingSettings);
+        const fullDb = await db.readDb();
+        setPaths(fullDb.monitoredPaths);
+        setExtensions(fullDb.monitoredExtensions);
+        setCleanupSettings(fullDb.cleanupSettings);
+        setFailureRemark(fullDb.failureRemark || '');
+        setInitialFailureRemark(fullDb.failureRemark || '');
+        setSmtpSettings(fullDb.smtpSettings || defaultSmtpSettings);
+        setProcessingSettings(fullDb.processingSettings || defaultProcessingSettings);
     }
     fetchData();
   }, [])
@@ -299,7 +298,7 @@ export default function SettingsPage() {
       return;
     }
     startTransition(async () => {
-        const success = await addUser({
+        const result = await addUser({
             id: 'user-' + Date.now(),
             username: newUsername,
             name: newUserName,
@@ -309,7 +308,7 @@ export default function SettingsPage() {
             avatar: null
         });
 
-        if (success) {
+        if (result.success) {
             toast({ title: "User Added", description: `User ${newUserName} has been added successfully.` });
             setNewUsername('');
             setNewUserName('');
@@ -317,7 +316,7 @@ export default function SettingsPage() {
             setNewUserPassword('');
             setNewUserRole('user');
         } else {
-            toast({ title: "Error", description: "A user with this username already exists.", variant: "destructive" });
+            toast({ title: "Error", description: result.message, variant: "destructive" });
         }
     });
   };
@@ -999,7 +998,3 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
-
-    
-
-    

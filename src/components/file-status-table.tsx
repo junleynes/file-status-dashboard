@@ -10,11 +10,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import type { FileStatus } from "@/types";
+import type { FileStatus, User } from "@/types";
 import { formatDistanceToNow } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "./ui/button";
-import { RefreshCw, FilePenLine } from "lucide-react";
+import { RefreshCw, FilePenLine, Trash2 } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -27,10 +27,12 @@ interface FileStatusTableProps {
   files: FileStatus[];
   onRetry: (file: FileStatus) => void;
   onRename: (file: FileStatus) => void;
+  onDelete: (file: FileStatus) => void;
   isReadOnly?: boolean;
+  userRole?: User['role'];
 }
 
-export function FileStatusTable({ files, onRetry, onRename, isReadOnly = false }: FileStatusTableProps) {
+export function FileStatusTable({ files, onRetry, onRename, onDelete, isReadOnly = false, userRole }: FileStatusTableProps) {
   const getStatusClasses = (status: FileStatus['status']): string => {
     switch (status) {
       case 'processing':
@@ -116,6 +118,18 @@ export function FileStatusTable({ files, onRetry, onRename, isReadOnly = false }
                               <p>Retry</p>
                             </TooltipContent>
                           </Tooltip>
+                           {userRole === 'admin' && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-8 w-8 hover:bg-destructive/10" onClick={() => onDelete(file)} disabled={isReadOnly}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                <p>Delete File</p>
+                                </TooltipContent>
+                            </Tooltip>
+                           )}
                         </div>
                       )}
                     </TableCell>
