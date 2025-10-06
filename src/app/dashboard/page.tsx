@@ -193,39 +193,39 @@ export default function DashboardPage() {
 
        <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
           <Card className="bg-yellow-500/20 dark:bg-yellow-500/10 border-yellow-500 text-yellow-900 dark:text-yellow-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-2 pb-1 md:p-4">
-              <CardTitle className="text-xs md:text-sm font-medium">Processing</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4">
+              <CardTitle className="text-xs font-medium">Processing</CardTitle>
               <Loader className="h-4 w-4 text-yellow-500 animate-spin" />
             </CardHeader>
-            <CardContent className="p-2 pt-0 md:p-4 md:pt-0">
-                <div className="text-lg md:text-2xl font-bold">{statusCounts.processing || 0}</div>
+            <CardContent className="p-3 pt-0 md:p-4 md:pt-0">
+                <div className="text-base md:text-2xl font-bold">{statusCounts.processing || 0}</div>
             </CardContent>
           </Card>
           <Card className="bg-green-500/20 dark:bg-green-500/10 border-green-500 text-green-900 dark:text-green-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-2 pb-1 md:p-4">
-              <CardTitle className="text-xs md:text-sm font-medium">Published</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4">
+              <CardTitle className="text-xs font-medium">Published</CardTitle>
               <CheckCircle2 className="h-4 w-4 text-green-500" />
             </CardHeader>
-            <CardContent className="p-2 pt-0 md:p-4 md:pt-0">
-                <div className="text-lg md:text-2xl font-bold">{statusCounts.published || 0}</div>
+            <CardContent className="p-3 pt-0 md:p-4 md:pt-0">
+                <div className="text-base md:text-2xl font-bold">{statusCounts.published || 0}</div>
             </CardContent>
           </Card>
           <Card className="bg-red-500/20 dark:bg-red-500/10 border-red-500 text-red-900 dark:text-red-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-2 pb-1 md:p-4">
-              <CardTitle className="text-xs md:text-sm font-medium">Failed</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4">
+              <CardTitle className="text-xs font-medium">Failed</CardTitle>
               <AlertTriangle className="h-4 w-4 text-red-500" />
             </CardHeader>
-            <CardContent className="p-2 pt-0 md:p-4 md:pt-0">
-                 <div className="text-lg md:text-2xl font-bold">{statusCounts.failed || 0}</div>
+            <CardContent className="p-3 pt-0 md:p-4 md:pt-0">
+                 <div className="text-base md:text-2xl font-bold">{statusCounts.failed || 0}</div>
             </CardContent>
           </Card>
           <Card className="bg-orange-500/20 dark:bg-orange-500/10 border-orange-500 text-orange-900 dark:text-orange-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-2 pb-1 md:p-4">
-              <CardTitle className="text-xs md:text-sm font-medium">Timed-out</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 md:p-4">
+              <CardTitle className="text-xs font-medium">Timed-out</CardTitle>
               <Clock className="h-4 w-4 text-orange-500" />
             </CardHeader>
-            <CardContent className="p-2 pt-0 md:p-4 md:pt-0">
-                 <div className="text-lg md:text-2xl font-bold">{statusCounts['timed-out'] || 0}</div>
+            <CardContent className="p-3 pt-0 md:p-4 md:pt-0">
+                 <div className="text-base md:text-2xl font-bold">{statusCounts['timed-out'] || 0}</div>
             </CardContent>
           </Card>
        </div>
@@ -323,6 +323,5 @@ export default function DashboardPage() {
 
     </motion.div>
   );
-}
 
     
