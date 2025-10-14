@@ -246,20 +246,22 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-           <Button variant="outline" onClick={() => setIsImportDialogOpen(true)} disabled={isPending}>
-             <Upload className="mr-2 h-4 w-4" />
-             Import from CSV
-           </Button>
-           <Button variant="outline" onClick={handleExport} disabled={isPending}>
-             <Download className="mr-2 h-4 w-4" />
-             {isPending ? "Exporting..." : "Export to CSV"}
-           </Button>
-            {user?.role === 'admin' && (
-            <Button variant="destructive" onClick={handleClearAll} disabled={isPending}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                {isPending ? "Clearing..." : "Clear All"}
-            </Button>
-            )}
+           {user?.role === 'admin' && (
+            <>
+              <Button variant="outline" onClick={() => setIsImportDialogOpen(true)} disabled={isPending}>
+                <Upload className="mr-2 h-4 w-4" />
+                Import from CSV
+              </Button>
+              <Button variant="outline" onClick={handleExport} disabled={isPending}>
+                <Download className="mr-2 h-4 w-4" />
+                {isPending ? "Exporting..." : "Export to CSV"}
+              </Button>
+              <Button variant="destructive" onClick={handleClearAll} disabled={isPending}>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {isPending ? "Clearing..." : "Clear All"}
+              </Button>
+            </>
+           )}
         </div>
       </div>
 
