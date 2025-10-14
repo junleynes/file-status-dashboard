@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import type { FileStatus, User } from "@/types";
-import { formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "./ui/button";
 import { RefreshCw, FilePenLine, Trash2 } from "lucide-react";
@@ -47,6 +47,15 @@ export function FileStatusTable({ files, onRetry, onRename, onDelete, isReadOnly
         return 'bg-secondary text-secondary-foreground';
     }
   };
+
+  const formatLastUpdated = (dateString: string) => {
+    try {
+      return format(new Date(dateString), "MM/dd/yyyy hh:mm:ss a");
+    } catch (e) {
+      return "Invalid date";
+    }
+  };
+
 
   return (
     <TooltipProvider>
@@ -93,7 +102,7 @@ export function FileStatusTable({ files, onRetry, onRename, onDelete, isReadOnly
                       {file.remarks}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDistanceToNow(new Date(file.lastUpdated), { addSuffix: true })}
+                      {formatLastUpdated(file.lastUpdated)}
                     </TableCell>
                     <TableCell className="text-right">
                       {file.status === 'failed' && (

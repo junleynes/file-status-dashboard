@@ -9,6 +9,7 @@ import * as path from 'path';
 import { authenticator } from 'otplib';
 import qrcode from 'qrcode';
 import nodemailer from 'nodemailer';
+import Papa from 'papaparse';
 
 
 export async function validateUserCredentials(username: string, password: string):Promise<{ success: boolean; user?: User }> {
@@ -335,8 +336,48 @@ export async function updateProcessingSettings(settings: ProcessingSettings) {
 }
 
 export async function clearAllFileStatuses() {
-    const statuses = await db.getFileStatuses();
-    const deletePromises = statuses.map(s => db.deleteFileStatus(s.name));
-    await Promise.all(deletePromises);
+    await db.deleteAllFileStatuses();
     revalidatePath('/dashboard');
+}
+
+export async function exportFileStatusesToCsv(): Promise<{ csv?: string; error?: string }> {
+    try {
+        const statuses = await db.getFileStatuses();
+        if (statuses.length === 0) {
+            return { error: "There are no file statuses to export." };
+        }
+        const csv = Papa.unparse(statuses);
+        return { csv };
+    } catch (error: any) {
+        console.error("Error exporting CSV:", error);
+        return { error: "An unexpected error occurred during export." };
+    }
+}
+
+export async function importFileStatusesFromCsv(csvContent: string): Promise<{ importedCount?: number; error?: string }> {
+    try {
+        const result = Papa.parse<FileStatus>(csvContent, { header: true, skipEmptyLines: true });
+
+        if (result.errors.length > 0) {
+            console.error("CSV Parsing errors:", result.errors);
+            return { error: `Error parsing CSV on row ${result.errors[0].row}: ${result.errors[0].message}` };
+        }
+
+        const requiredFields = ['id', 'name', 'status', 'source', 'lastUpdated'];
+        if (!result.meta.fields || !requiredFields.every(field => result.meta.fields!.includes(field))) {
+            return { error: `CSV must contain the following columns: ${requiredFields.join(', ')}` };
+        }
+
+        const statusesToImport: FileStatus[] = result.data.map(row => ({
+            ...row,
+            remarks: row.remarks || '',
+        }));
+
+        await db.bulkUpsertFileStatuses(statusesToImport);
+        revalidatePath('/dashboard');
+        return { importedCount: statusesToImport.length };
+    } catch (error: any) {
+        console.error("Error importing CSV:", error);
+        return { error: `An unexpected error occurred during import: ${error.message}` };
+    }
 }

@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { FileStatusTable } from "@/components/file-status-table";
 import { useAuth } from "@/hooks/use-auth";
 import type { FileStatus } from "@/types";
-import { Trash2, Search, X, CheckCircle2, AlertTriangle, Loader, Clock, Info, Trash } from "lucide-react";
+import { Trash2, Search, X, CheckCircle2, AlertTriangle, Loader, Clock, Info, Trash, Upload, Download, FileUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { clearAllFileStatuses, retryFile, renameFile, checkWriteAccess, deleteFailedFile } from "@/lib/actions";
+import { clearAllFileStatuses, retryFile, renameFile, checkWriteAccess, deleteFailedFile, exportFileStatusesToCsv, importFileStatusesFromCsv } from "@/lib/actions";
 import { readDb } from "@/lib/db";
 import {
   Dialog,
@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,18 +46,21 @@ export default function DashboardPage() {
   const [newFileName, setNewFileName] = useState("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<FileStatus | null>(null);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+
   const { toast } = useToast();
   const [canWrite, setCanWrite] = useState(true);
 
+  const fetchFiles = async () => {
+    const db = await readDb();
+    setFiles(db.fileStatuses);
+  };
+
   useEffect(() => {
-    const fetchFiles = async () => {
-      const db = await readDb();
-      setFiles(db.fileStatuses);
-    };
     fetchFiles();
-
     const intervalId = setInterval(fetchFiles, 5000); 
-
     return () => clearInterval(intervalId);
   }, []);
 
@@ -73,7 +76,7 @@ export default function DashboardPage() {
   const handleClearAll = () => {
     startTransition(async () => {
       await clearAllFileStatuses();
-      setFiles([]);
+      await fetchFiles();
       toast({
         title: "Database Cleared",
         description: "All file statuses have been removed.",
@@ -85,6 +88,7 @@ export default function DashboardPage() {
     startTransition(async () => {
       const result = await retryFile(file.name);
       if (result.success) {
+        await fetchFiles();
         toast({
           title: "File Sent for Retry",
           description: `"${file.name}" has been moved back to the import folder.`,
@@ -110,6 +114,7 @@ export default function DashboardPage() {
 
     startTransition(async () => {
       const result = await renameFile(fileToRename.name, newFileName.trim());
+      await fetchFiles();
       if (result.success) {
         toast({
           title: "File Renamed & Retried",
@@ -138,6 +143,7 @@ export default function DashboardPage() {
 
     startTransition(async () => {
       const result = await deleteFailedFile(fileToDelete.name);
+      await fetchFiles();
       if (result.success) {
         toast({
           title: "File Deleted",
@@ -152,6 +158,62 @@ export default function DashboardPage() {
       }
       setIsDeleteDialogOpen(false);
       setFileToDelete(null);
+    });
+  };
+
+  const handleExport = () => {
+    startTransition(async () => {
+      const { csv, error } = await exportFileStatusesToCsv();
+      if (error) {
+        toast({ title: "Export Failed", description: error, variant: "destructive" });
+        return;
+      }
+      const blob = new Blob([csv!], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      const date = new Date().toISOString().slice(0, 10);
+      link.setAttribute('download', `file-status-backup-${date}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast({ title: "Export Successful", description: "Your file status data has been downloaded." });
+    });
+  };
+
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.type !== 'text/csv') {
+        setImportError('Invalid file type. Please upload a CSV file.');
+        setImportFile(null);
+      } else {
+        setImportFile(file);
+        setImportError(null);
+      }
+    }
+  };
+
+  const handleImport = () => {
+    if (!importFile) return;
+
+    startTransition(async () => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const content = e.target?.result as string;
+        const result = await importFileStatusesFromCsv(content);
+        if (result.error) {
+          toast({ title: "Import Failed", description: result.error, variant: "destructive", duration: 10000 });
+        } else {
+          toast({ title: "Import Successful", description: `${result.importedCount} records have been imported.` });
+          await fetchFiles();
+        }
+        setIsImportDialogOpen(false);
+        setImportFile(null);
+        setImportError(null);
+      };
+      reader.readAsText(importFile);
     });
   };
 
@@ -183,12 +245,22 @@ export default function DashboardPage() {
             Real-time status of all monitored files.
           </p>
         </div>
-        {user?.role === 'admin' && (
-          <Button variant="destructive" onClick={handleClearAll} disabled={isPending}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            {isPending ? "Clearing..." : "Clear All"}
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+           <Button variant="outline" onClick={() => setIsImportDialogOpen(true)} disabled={isPending}>
+             <Upload className="mr-2 h-4 w-4" />
+             Import from CSV
+           </Button>
+           <Button variant="outline" onClick={handleExport} disabled={isPending}>
+             <Download className="mr-2 h-4 w-4" />
+             {isPending ? "Exporting..." : "Export to CSV"}
+           </Button>
+            {user?.role === 'admin' && (
+            <Button variant="destructive" onClick={handleClearAll} disabled={isPending}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                {isPending ? "Clearing..." : "Clear All"}
+            </Button>
+            )}
+        </div>
       </div>
 
        <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
@@ -321,6 +393,35 @@ export default function DashboardPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Import File Statuses from CSV</DialogTitle>
+                  <DialogDescription>
+                      Upload a CSV file to bulk update or add file statuses. The CSV must contain 'id', 'name', 'status', 'source', 'lastUpdated', and 'remarks' columns.
+                  </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                  <div className="grid w-full max-w-sm items-center gap-1.5">
+                      <Label htmlFor="csv-file">CSV File</Label>
+                      <Input id="csv-file" type="file" accept=".csv" onChange={handleImportFileChange} />
+                  </div>
+                  {importError && (
+                      <Alert variant="destructive">
+                          <AlertTriangle className="h-4 w-4" />
+                          <AlertTitle>Error</AlertTitle>
+                          <AlertDescription>{importError}</AlertDescription>
+                      </Alert>
+                  )}
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsImportDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={handleImport} disabled={!importFile || isPending}>
+                      {isPending ? 'Importing...' : 'Import'}
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

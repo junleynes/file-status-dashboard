@@ -222,11 +222,12 @@ export async function upsertFileStatus(file: FileStatus): Promise<void> {
 export async function bulkUpsertFileStatuses(files: FileStatus[]): Promise<void> {
     const db = getDb();
     const stmt = db.prepare('INSERT OR REPLACE INTO file_statuses (id, name, status, source, lastUpdated, remarks) VALUES (?, ?, ?, ?, ?, ?)');
-    db.transaction((filesToInsert: FileStatus[]) => {
+    const transaction = db.transaction((filesToInsert: FileStatus[]) => {
         for (const file of filesToInsert) {
             stmt.run(file.id, file.name, file.status, file.source, file.lastUpdated, file.remarks || null);
         }
-    })(files);
+    });
+    transaction(files);
 }
 
 export async function deleteFileStatus(name: string): Promise<void> {
@@ -234,6 +235,13 @@ export async function deleteFileStatus(name: string): Promise<void> {
     const stmt = db.prepare('DELETE FROM file_statuses WHERE name = ?');
     stmt.run(name);
 }
+
+export async function deleteAllFileStatuses(): Promise<void> {
+    const db = getDb();
+    const stmt = db.prepare('DELETE FROM file_statuses');
+    stmt.run();
+}
+
 
 export async function deleteFileStatusesByAge(maxAgeMs: number): Promise<number> {
     const db = getDb();
