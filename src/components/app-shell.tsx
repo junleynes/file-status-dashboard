@@ -39,7 +39,7 @@ import {
   DropdownMenuPortal,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { BarChartIcon, CogIcon, LogOutIcon, Moon, Sun, Laptop, KeyRound, UserCircle, UploadCloud, XCircle } from 'lucide-react';
+import { BarChartIcon, CogIcon, LogOutIcon, Moon, Sun, Laptop, KeyRound, UserCircle, UploadCloud, XCircle, LineChart } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { useTheme } from "next-themes";
 import { BrandLogo } from './brand-logo';
@@ -375,6 +375,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 >
                   <BarChartIcon />
                   <span>Dashboard</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+               <SidebarMenuItem>
+                <SidebarMenuButton
+                  onClick={() => router.push('/statistics')}
+                  isActive={pathname === '/statistics'}
+                  tooltip="Statistics"
+                >
+                  <LineChart />
+                  <span>Statistics</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {user?.role === 'admin' && (

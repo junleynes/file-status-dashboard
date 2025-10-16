@@ -3,13 +3,14 @@
 
 import { revalidatePath } from 'next/cache';
 import * as db from './db';
-import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatus, MonitoredPath, SmtpSettings, ProcessingSettings } from '../types';
+import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatus, MonitoredPath, SmtpSettings, ProcessingSettings, ChartData } from '../types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { authenticator } from 'otplib';
 import qrcode from 'qrcode';
 import nodemailer from 'nodemailer';
 import Papa from 'papaparse';
+import { format, parseISO, startOfWeek, startOfMonth } from 'date-fns';
 
 
 export async function validateUserCredentials(username: string, password: string):Promise<{ success: boolean; user?: User }> {
@@ -379,5 +380,58 @@ export async function importFileStatusesFromCsv(csvContent: string): Promise<{ i
     } catch (error: any) {
         console.error("Error importing CSV:", error);
         return { error: `An unexpected error occurred during import: ${error.message}` };
+    }
+}
+
+export async function generateStatisticsReport(): Promise<{ csv?: string; error?: string }> {
+    try {
+        const files = await db.getFileStatuses();
+        const publishedFiles = files.filter(file => file.status === 'published');
+        
+        if (publishedFiles.length === 0) {
+            return { error: "No published files available to generate a report." };
+        }
+
+        // Process data
+        const dailyCounts: { [key: string]: number } = {};
+        const weeklyCounts: { [key: string]: number } = {};
+        const monthlyCounts: { [key: string]: number } = {};
+
+        publishedFiles.forEach(file => {
+            const date = parseISO(file.lastUpdated);
+            const dailyKey = format(date, "yyyy-MM-dd");
+            const weeklyKey = format(startOfWeek(date, { weekStartsOn: 1 }), "yyyy-MM-dd");
+            const monthlyKey = format(startOfMonth(date), "yyyy-MM");
+
+            dailyCounts[dailyKey] = (dailyCounts[dailyKey] || 0) + 1;
+            weeklyCounts[weeklyKey] = (weeklyCounts[weeklyKey] || 0) + 1;
+            monthlyCounts[monthlyKey] = (monthlyCounts[monthlyKey] || 0) + 1;
+        });
+
+        // Convert to arrays
+        const dailyData = Object.entries(dailyCounts).map(([date, count]) => ({ period: 'Daily', date, count }));
+        const weeklyData = Object.entries(weeklyCounts).map(([date, count]) => ({ period: 'Weekly', date: `Week of ${date}`, count }));
+        const monthlyData = Object.entries(monthlyCounts).map(([date, count]) => ({ period: 'Monthly', date: format(parseISO(`${date}-01`), 'MMM yyyy'), count }));
+        
+        const summaryData = [...dailyData, ...weeklyData, ...monthlyData];
+
+        // Format raw data
+        const rawData = publishedFiles.map(f => ({
+            period: 'Raw Data',
+            fileName: f.name,
+            publishedDate: f.lastUpdated,
+            source: f.source,
+        }));
+
+        // Convert to CSV
+        const summaryCsv = Papa.unparse(summaryData);
+        const rawDataCsv = Papa.unparse(rawData);
+
+        const finalCsv = `STATISTICS SUMMARY\n${summaryCsv}\n\nRAW PUBLISHED DATA\n${rawDataCsv}`;
+
+        return { csv: finalCsv };
+    } catch (error: any) {
+        console.error("Error generating statistics report:", error);
+        return { error: "An unexpected error occurred during report generation." };
     }
 }

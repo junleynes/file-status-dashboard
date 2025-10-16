@@ -66,6 +66,11 @@ export type SmtpSettings = {
     }
 }
 
+export type ChartData = {
+    date: string;
+    count: number;
+}
+
 export type Database = {
     users: User[];
     branding: BrandingSettings;
@@ -77,6 +82,3 @@ export type Database = {
     failureRemark: string;
     smtpSettings: SmtpSettings;
 }
-
-    
-    
