@@ -185,7 +185,7 @@ export default function DashboardPage() {
   const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.type !== 'text/csv') {
+      if (!file.name.toLowerCase().endsWith('.csv')) {
         setImportError('Invalid file type. Please upload a CSV file.');
         setImportFile(null);
       } else {
@@ -427,3 +427,5 @@ export default function DashboardPage() {
     </motion.div>
   );
 }
+
+    
