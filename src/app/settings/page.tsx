@@ -39,10 +39,13 @@ import {
     testSmtpConnection,
     sendPasswordResetEmail,
     updateProcessingSettings,
+    resetUserPasswordByAdmin,
 } from "@/lib/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { BrandLogo } from "@/components/brand-logo";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 const defaultImportPath: MonitoredPath = {
   id: 'import-path',
@@ -93,6 +96,8 @@ export default function SettingsPage() {
 
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
   const [cleanupSettings, setCleanupSettings] = useState<CleanupSettings>({
       status: { enabled: true, value: '7', unit: 'days'},
@@ -334,10 +339,12 @@ export default function SettingsPage() {
 
   const handleOpenResetDialog = (userToReset: User) => {
     setSelectedUser(userToReset);
+    setNewPassword('');
+    setConfirmNewPassword('');
     setIsResetDialogOpen(true);
   };
 
-  const handlePasswordReset = () => {
+  const handlePasswordResetEmail = () => {
     if (!selectedUser) return;
 
     if (!selectedUser.email) {
@@ -365,6 +372,30 @@ export default function SettingsPage() {
           variant: "destructive"
         });
       }
+    });
+  };
+
+  const handleManualPasswordReset = () => {
+    if (!selectedUser || !newPassword) return;
+    
+    if (newPassword !== confirmNewPassword) {
+        toast({ title: "Passwords do not match", variant: "destructive" });
+        return;
+    }
+     if (newPassword.length < 6) {
+        toast({ title: "Password must be at least 6 characters long.", variant: "destructive" });
+        return;
+    }
+
+    startTransition(async () => {
+        const result = await resetUserPasswordByAdmin(selectedUser.id, newPassword);
+        if (result.success) {
+            toast({ title: "Password Reset Successfully", description: `The password for ${selectedUser.name} has been updated.` });
+            setIsResetDialogOpen(false);
+            setSelectedUser(null);
+        } else {
+            toast({ title: "Failed to Reset Password", description: result.error, variant: "destructive" });
+        }
     });
   };
   
@@ -965,36 +996,87 @@ export default function SettingsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Reset Password for {selectedUser?.name}</DialogTitle>
-            <DialogDescription>
-                This will generate a new random password and email it to the user. Are you sure you want to continue?
+             <DialogDescription>
+                Choose a method to reset the user's password.
             </DialogDescription>
           </DialogHeader>
-          {selectedUser?.email ? (
-            <Alert>
-              <Mail className="h-4 w-4" />
-              <AlertDescription>
-                An email with the temporary password will be sent to <strong>{selectedUser.email}</strong>.
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <Alert variant="destructive">
-              <MessageSquareWarning className="h-4 w-4" />
-              <AlertDescription>
-                This user does not have a registered email address. Cannot send password reset email.
-              </AlertDescription>
-            </Alert>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsResetDialogOpen(false)}>Cancel</Button>
-            <Button 
-                onClick={handlePasswordReset} 
-                disabled={isPending || !selectedUser?.email}
-            >
-              {isPending ? 'Sending...' : 'Send Reset Email'}
-            </Button>
-          </DialogFooter>
+          <Tabs defaultValue="send-email" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="send-email" disabled={!selectedUser?.email}>Send Reset Email</TabsTrigger>
+                <TabsTrigger value="set-manually">Set Manually</TabsTrigger>
+            </TabsList>
+            <TabsContent value="send-email">
+                <div className="py-4 space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                        This will generate a new random password and email it to the user.
+                    </p>
+                    {selectedUser?.email ? (
+                        <Alert>
+                        <Mail className="h-4 w-4" />
+                        <AlertDescription>
+                            An email with the temporary password will be sent to <strong>{selectedUser.email}</strong>.
+                        </AlertDescription>
+                        </Alert>
+                    ) : (
+                        <Alert variant="destructive">
+                        <MessageSquareWarning className="h-4 w-4" />
+                        <AlertDescription>
+                            This user does not have a registered email address. Cannot send password reset email.
+                        </AlertDescription>
+                        </Alert>
+                    )}
+                </div>
+                 <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsResetDialogOpen(false)}>Cancel</Button>
+                    <Button 
+                        onClick={handlePasswordResetEmail} 
+                        disabled={isPending || !selectedUser?.email}
+                    >
+                    {isPending ? 'Sending...' : 'Send Reset Email'}
+                    </Button>
+                </DialogFooter>
+            </TabsContent>
+            <TabsContent value="set-manually">
+                 <div className="py-4 space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                        Enter a new password for the user. They will not be notified of this change.
+                    </p>
+                    <div className="space-y-2">
+                        <Label htmlFor="new-password">New Password</Label>
+                        <Input 
+                            id="new-password"
+                            type="password" 
+                            value={newPassword} 
+                            onChange={(e) => setNewPassword(e.target.value)} 
+                            disabled={isPending}
+                        />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="confirm-new-password">Confirm New Password</Label>
+                        <Input 
+                            id="confirm-new-password"
+                            type="password" 
+                            value={confirmNewPassword} 
+                            onChange={(e) => setConfirmNewPassword(e.target.value)} 
+                            disabled={isPending}
+                        />
+                    </div>
+                </div>
+                 <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsResetDialogOpen(false)}>Cancel</Button>
+                    <Button 
+                        onClick={handleManualPasswordReset} 
+                        disabled={isPending || !newPassword || newPassword !== confirmNewPassword}
+                    >
+                    {isPending ? 'Saving...' : 'Set New Password'}
+                    </Button>
+                </DialogFooter>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </motion.div>
   );
 }
+
+    

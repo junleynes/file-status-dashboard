@@ -193,6 +193,13 @@ export async function updateUser(user: User): Promise<void> {
     );
 }
 
+export async function updateUserPassword(userId: string, newPassword: string): Promise<void> {
+    const db = getDb();
+    const stmt = db.prepare('UPDATE users SET password = ? WHERE id = ?');
+    stmt.run(newPassword, userId);
+}
+
+
 export async function removeUser(userId: string): Promise<void> {
     const db = getDb();
     const stmt = db.prepare('DELETE FROM users WHERE id = ?');
@@ -356,3 +363,5 @@ export async function readDb(): Promise<JsonDatabase> {
         smtpSettings
     };
 }
+
+    

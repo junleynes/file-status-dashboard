@@ -254,8 +254,7 @@ export async function sendPasswordResetEmail(userId: string): Promise<{ success:
     if (!smtpSettings.host) return { success: false, error: "SMTP is not configured. Cannot send email." };
 
     const tempPassword = Math.random().toString(36).slice(-8);
-    user.password = tempPassword;
-    await db.updateUser(user);
+    await db.updateUserPassword(user.id, tempPassword);
 
     const transporter = nodemailer.createTransport({
         host: smtpSettings.host,
@@ -280,6 +279,15 @@ export async function sendPasswordResetEmail(userId: string): Promise<{ success:
     }
 }
 
+export async function resetUserPasswordByAdmin(userId: string, newPassword: string): Promise<{ success: boolean, error?: string }> {
+    try {
+        await db.updateUserPassword(userId, newPassword);
+        return { success: true };
+    } catch (error: any) {
+        console.error(`Failed to reset password for user ${userId}:`, error);
+        return { success: false, error: 'An unexpected error occurred.' };
+    }
+}
 
 export async function addUser(newUser: User): Promise<{ success: boolean, message?: string }> {
   const result = await db.addUser(newUser);
@@ -435,3 +443,5 @@ export async function generateStatisticsReport(): Promise<{ csv?: string; error?
         return { error: "An unexpected error occurred during report generation." };
     }
 }
+
+    
