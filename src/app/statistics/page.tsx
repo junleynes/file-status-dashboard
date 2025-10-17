@@ -156,7 +156,6 @@ function ChartComponent({ data, config }: { data: ChartData[], config: any }) {
                     tickLine={false}
                     tickMargin={10}
                     axisLine={false}
-                    tickFormatter={(value) => value.slice(0, 10)}
                   />
                    <YAxis allowDecimals={false} />
                   <ChartTooltip
