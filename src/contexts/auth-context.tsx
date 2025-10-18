@@ -131,10 +131,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUser = async (updatedUser: User) => {
     await actions.updateUser(updatedUser);
     await refreshUsers();
-    await refreshCurrentUser();
+    if (updatedUser.id === user?.id) {
+        await refreshCurrentUser();
+    }
   }
 
   const value = { user, users, loading, login, completeTwoFactorLogin, logout, addUser, removeUser, updateOwnPassword, updateUser, refreshUsers, refreshCurrentUser };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+
+    

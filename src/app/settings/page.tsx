@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MonitoredPath, MonitoredPaths, User, CleanupSettings, SmtpSettings, ProcessingSettings } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff, FileImage, Mail, Send } from "lucide-react";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff, FileImage, Mail, Send, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -76,7 +76,7 @@ const defaultProcessingSettings: ProcessingSettings = {
 
 
 export default function SettingsPage() {
-  const { user, loading, users, addUser, removeUser, refreshUsers } = useAuth();
+  const { user, loading, users, addUser, removeUser, updateUser, refreshUsers } = useAuth();
   const { brandName, logo, favicon, footerText, setBrandName, setLogo, setFavicon, setFooterText, brandingLoading } = useBranding();
   const router = useRouter();
 
@@ -98,6 +98,13 @@ export default function SettingsPage() {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
+
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editedUsername, setEditedUsername] = useState('');
+  const [editedName, setEditedName] = useState('');
+  const [editedEmail, setEditedEmail] = useState('');
+
 
   const [cleanupSettings, setCleanupSettings] = useState<CleanupSettings>({
       status: { enabled: true, value: '7', unit: 'days'},
@@ -399,6 +406,34 @@ export default function SettingsPage() {
     });
   };
   
+    const handleOpenEditDialog = (userToEdit: User) => {
+        setEditingUser(userToEdit);
+        setEditedName(userToEdit.name);
+        setEditedUsername(userToEdit.username);
+        setEditedEmail(userToEdit.email || '');
+        setIsEditDialogOpen(true);
+    };
+
+    const handleUpdateUser = () => {
+        if (!editingUser || !editedName || !editedUsername) {
+             toast({ title: "Missing Information", description: "Full Name and Username cannot be empty.", variant: "destructive" });
+            return;
+        }
+
+        startTransition(async () => {
+            const updatedDetails: User = {
+                ...editingUser,
+                name: editedName,
+                username: editedUsername,
+                email: editedEmail,
+            };
+            await updateUser(updatedDetails);
+            toast({ title: "User Updated", description: `${editedName}'s details have been saved.` });
+            setIsEditDialogOpen(false);
+            setEditingUser(null);
+        });
+    };
+  
   const handleEnableTwoFactor = async (userId: string) => {
     startTransition(async () => {
         await enableTwoFactor(userId);
@@ -688,6 +723,10 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <div className="flex items-center gap-1 flex-wrap self-end sm:self-center">
+                                 <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(u)} disabled={isPending}>
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    <span className="hidden sm:inline">Edit User</span>
+                                </Button>
                                 {u.twoFactorRequired ? (
                                     <Button variant="outline" size="sm" onClick={() => handleDisableTwoFactor(u.id)} disabled={isPending}>
                                         <ShieldOff className="mr-2 h-4 w-4 text-destructive" />
@@ -992,6 +1031,37 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
       
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit User: {editingUser?.name}</DialogTitle>
+                    <DialogDescription>
+                        Update the user's details below.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-user-name">Full Name</Label>
+                        <Input id="edit-user-name" value={editedName} onChange={(e) => setEditedName(e.target.value)} disabled={isPending} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-user-username">Username</Label>
+                        <Input id="edit-user-username" value={editedUsername} onChange={(e) => setEditedUsername(e.target.value)} disabled={isPending} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-user-email">Email Address</Label>
+                        <Input id="edit-user-email" type="email" value={editedEmail} onChange={(e) => setEditedEmail(e.target.value)} disabled={isPending} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleUpdateUser} disabled={isPending}>
+                        {isPending ? "Saving..." : "Save Changes"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
        <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1078,5 +1148,7 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
+
+    
 
     
