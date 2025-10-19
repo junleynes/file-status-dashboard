@@ -33,13 +33,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { isToday, isYesterday, parseISO } from "date-fns";
 
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [files, setFiles] = useState<FileStatus[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<FileStatus['status'] | 'all'>('all');
+  const [activeFilter, setActiveFilter] = useState<FileStatus['status'] | 'all' | 'today' | 'yesterday'>('all');
   const [isPending, startTransition] = useTransition();
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
   const [fileToRename, setFileToRename] = useState<FileStatus | null>(null);
@@ -220,9 +221,14 @@ export default function DashboardPage() {
 
   const filteredFiles = useMemo(() => {
     return files
-      .filter(file => statusFilter === 'all' || file.status === statusFilter)
+      .filter(file => {
+        if (activeFilter === 'all') return true;
+        if (activeFilter === 'today') return isToday(parseISO(file.lastUpdated));
+        if (activeFilter === 'yesterday') return isYesterday(parseISO(file.lastUpdated));
+        return file.status === activeFilter;
+      })
       .filter(file => file.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  }, [files, statusFilter, searchTerm]);
+  }, [files, activeFilter, searchTerm]);
 
   const statusCounts = useMemo(() => {
     return files.reduce((acc, file) => {
@@ -333,11 +339,13 @@ export default function DashboardPage() {
               )}
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-                <Button size="sm" variant={statusFilter === 'all' ? 'default' : 'outline'} onClick={() => setStatusFilter('all')}>All</Button>
-                <Button size="sm" variant={statusFilter === 'processing' ? 'secondary' : 'outline'} className={statusFilter === 'processing' ? 'bg-yellow-500/80 text-white hover:bg-yellow-500/70' : ''} onClick={() => setStatusFilter('processing')}>Processing</Button>
-                <Button size="sm" variant={statusFilter === 'published' ? 'secondary' : 'outline'} className={statusFilter === 'published' ? 'bg-green-500/80 text-white hover:bg-green-500/70' : ''} onClick={() => setStatusFilter('published')}>Published</Button>
-                <Button size="sm" variant={statusFilter === 'failed' ? 'destructive' : 'outline'} onClick={() => setStatusFilter('failed')}>Failed</Button>
-                <Button size="sm" variant={statusFilter === 'timed-out' ? 'secondary' : 'outline'} className={statusFilter === 'timed-out' ? 'bg-orange-500/80 text-white hover:bg-orange-500/70' : ''} onClick={() => setStatusFilter('timed-out')}>Timed-out</Button>
+                <Button size="sm" variant={activeFilter === 'all' ? 'default' : 'outline'} onClick={() => setActiveFilter('all')}>All</Button>
+                <Button size="sm" variant={activeFilter === 'today' ? 'default' : 'outline'} onClick={() => setActiveFilter('today')}>Today</Button>
+                <Button size="sm" variant={activeFilter === 'yesterday' ? 'default' : 'outline'} onClick={() => setActiveFilter('yesterday')}>Yesterday</Button>
+                <Button size="sm" variant={activeFilter === 'processing' ? 'secondary' : 'outline'} className={activeFilter === 'processing' ? 'bg-yellow-500/80 text-white hover:bg-yellow-500/70' : ''} onClick={() => setActiveFilter('processing')}>Processing</Button>
+                <Button size="sm" variant={activeFilter === 'published' ? 'secondary' : 'outline'} className={activeFilter === 'published' ? 'bg-green-500/80 text-white hover:bg-green-500/70' : ''} onClick={() => setActiveFilter('published')}>Published</Button>
+                <Button size="sm" variant={activeFilter === 'failed' ? 'destructive' : 'outline'} onClick={() => setActiveFilter('failed')}>Failed</Button>
+                <Button size="sm" variant={activeFilter === 'timed-out' ? 'secondary' : 'outline'} className={activeFilter === 'timed-out' ? 'bg-orange-500/80 text-white hover:bg-orange-500/70' : ''} onClick={() => setActiveFilter('timed-out')}>Timed-out</Button>
             </div>
           </div>
           <FileStatusTable
