@@ -361,7 +361,7 @@ export async function updateSmtpSettings(settings: SmtpSettings): Promise<void> 
 
 export async function getMaintenanceSettings(): Promise<MaintenanceSettings> {
     return getSetting<MaintenanceSettings>('maintenanceSettings', {
-        enabled: false, message: 'The application is currently down for maintenance. Please check back later.'
+        enabled: false, message: 'The application is currently down for maintenance. We’re performing necessary updates to improve performance and reliability. Please check back later.'
     });
 }
 export async function updateMaintenanceSettings(settings: MaintenanceSettings): Promise<void> {

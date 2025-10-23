@@ -74,7 +74,7 @@ const defaultProcessingSettings: ProcessingSettings = {
 
 const defaultMaintenanceSettings: MaintenanceSettings = {
     enabled: false,
-    message: 'The application is currently down for maintenance. Please check back later.',
+    message: 'The application is currently down for maintenance. We’re performing necessary updates to improve performance and reliability. Please check back later.',
 };
 
 
