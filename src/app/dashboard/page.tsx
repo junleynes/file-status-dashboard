@@ -315,7 +315,7 @@ export default function DashboardPage() {
             <CardTitle>
                 File Status
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
-                    (Showing {filteredFiles.length} of {files.length} files)
+                    (Showing {filteredFiles.length} files)
                 </span>
             </CardTitle>
         </CardHeader>
