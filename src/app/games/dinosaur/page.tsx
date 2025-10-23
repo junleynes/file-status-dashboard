@@ -18,20 +18,16 @@ const GamePage = () => {
     const gameSpeedRef = useRef(3);
 
     const drawDino = (ctx: CanvasRenderingContext2D, dino: { x: number, y: number, width: number, height: number }) => {
-        ctx.fillStyle = 'hsl(var(--primary))';
-        // A simple dino shape
-        ctx.fillRect(dino.x + 0, dino.y + 0, 20, 10);
-        ctx.fillRect(dino.x + 0, dino.y + 10, 10, 20);
-        ctx.fillRect(dino.x + 10, dino.y + 10, 10, 10);
-        ctx.fillRect(dino.x + 20, dino.y + 0, 10, 30);
-        ctx.fillRect(dino.x + 30, dino.y + 10, 10, 20);
-        ctx.fillRect(dino.x + 20, dino.y + 30, 10, 10);
-        ctx.fillRect(dino.x + 10, dino.y + 30, 10, 10);
+        ctx.fillStyle = '#666'; // A visible gray color
+        ctx.fillRect(dino.x, dino.y, 20, 2); // tail
+        ctx.fillRect(dino.x + 2, dino.y - 12, 18, 14); // body
+        ctx.fillRect(dino.x + 20, dino.y - 20, 14, 8); // head
+        ctx.fillRect(dino.x + 8, dino.y + 2, 4, 8); // leg
+        ctx.fillRect(dino.x + 16, dino.y + 2, 4, 8); // leg
     };
 
     const drawCactus = (ctx: CanvasRenderingContext2D, obstacle: { x: number, y: number, width: number, height: number }) => {
-        ctx.fillStyle = 'hsl(var(--destructive))';
-        // A simple cactus shape
+        ctx.fillStyle = '#666'; // A visible gray color
         ctx.fillRect(obstacle.x + 5, obstacle.y, 10, obstacle.height); // Main stem
         ctx.fillRect(obstacle.x, obstacle.y + 10, 5, 15); // Left arm
         ctx.fillRect(obstacle.x + 15, obstacle.y + 15, 5, 15); // Right arm
@@ -47,11 +43,11 @@ const GamePage = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Draw Ground
-        ctx.fillStyle = 'hsl(var(--foreground))';
+        ctx.fillStyle = '#888';
         ctx.fillRect(0, 170, canvas.width, 2);
         
         // Draw Dino
-        drawDino(ctx, { ...dinoRef.current, y: dinoRef.current.y - (dinoRef.current.height - 20) });
+        drawDino(ctx, { ...dinoRef.current, y: dinoRef.current.y - dinoRef.current.height + 20 });
 
         // Draw Obstacles
         obstaclesRef.current.forEach(obstacle => {
@@ -59,12 +55,12 @@ const GamePage = () => {
         });
         
         // Draw Score
-        ctx.fillStyle = 'hsl(var(--foreground))';
+        ctx.fillStyle = '#888';
         ctx.font = '16px sans-serif';
         ctx.fillText(`Score: ${score}`, 10, 20);
 
         if (gameState === 'over') {
-            ctx.fillStyle = 'hsl(var(--foreground))';
+            ctx.fillStyle = '#888';
             ctx.font = '24px sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 20);
@@ -205,5 +201,3 @@ const GamePage = () => {
 };
 
 export default GamePage;
-
-    
