@@ -33,6 +33,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { isToday, isYesterday, parseISO } from "date-fns";
 
 
@@ -50,6 +51,9 @@ export default function DashboardPage() {
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
 
   const { toast } = useToast();
   const [canWrite, setCanWrite] = useState(true);
@@ -230,6 +234,20 @@ export default function DashboardPage() {
       .filter(file => file.name.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [files, activeFilter, searchTerm]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter, searchTerm, itemsPerPage]);
+
+  const totalPages = itemsPerPage > 0 ? Math.ceil(filteredFiles.length / itemsPerPage) : 1;
+  const paginatedFiles = useMemo(() => {
+     if (itemsPerPage === 0) {
+      return filteredFiles;
+    }
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredFiles.slice(startIndex, endIndex);
+  }, [filteredFiles, currentPage, itemsPerPage]);
+
   const statusCounts = useMemo(() => {
     return files.reduce((acc, file) => {
       acc[file.status] = (acc[file.status] || 0) + 1;
@@ -354,13 +372,54 @@ export default function DashboardPage() {
             </div>
           </div>
           <FileStatusTable
-            files={filteredFiles}
+            files={paginatedFiles}
             onRetry={handleRetry}
             onRename={handleOpenRenameDialog}
             onDelete={handleOpenDeleteDialog}
             isReadOnly={!canWrite}
             userRole={user?.role}
           />
+           <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Rows per page:</span>
+                <Select
+                  value={itemsPerPage.toString()}
+                  onValueChange={(value) => setItemsPerPage(Number(value))}
+                >
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-4">
+                 <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                </span>
+                <div className="flex items-center gap-2">
+                    <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    >
+                    Previous
+                    </Button>
+                    <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    >
+                    Next
+                    </Button>
+                </div>
+              </div>
+          </div>
         </CardContent>
       </Card>
       
@@ -440,5 +499,7 @@ export default function DashboardPage() {
     </motion.div>
   );
 }
+
+    
 
     
