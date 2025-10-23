@@ -91,7 +91,8 @@ export default function DashboardPage() {
 
   const handleRetry = (file: FileStatus) => {
     startTransition(async () => {
-      const result = await retryFile(file.name);
+      if (!user) return;
+      const result = await retryFile(file.name, user.username);
       if (result.success) {
         await fetchFiles();
         toast({
@@ -115,10 +116,10 @@ export default function DashboardPage() {
   };
   
   const handleRename = () => {
-    if (!fileToRename || !newFileName.trim()) return;
+    if (!fileToRename || !newFileName.trim() || !user) return;
 
     startTransition(async () => {
-      const result = await renameFile(fileToRename.name, newFileName.trim());
+      const result = await renameFile(fileToRename.name, newFileName.trim(), user.username);
       await fetchFiles();
       if (result.success) {
         toast({

@@ -470,6 +470,23 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>Configuration Management</CardTitle>
+          <CardDescription>Export your current application settings (excluding users) as a JSON file, or import settings from a backup file.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={handleExportSettings} disabled={isPending}>
+            <Download className="mr-2 h-4 w-4" />
+            Export Settings
+          </Button>
+          <Button variant="outline" onClick={() => setIsSettingsImportDialogOpen(true)} disabled={isPending}>
+            <Upload className="mr-2 h-4 w-4" />
+            Import Settings
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Monitored Locations</CardTitle>
           <CardDescription>Define the import and failed locations to be monitored by the application.</CardDescription>
         </CardHeader>
@@ -821,23 +838,6 @@ export default function SettingsPage() {
                     <Button onClick={handleFooterTextSave} disabled={isPending || localFooterText === footerText} className="w-full sm:w-auto">Save</Button>
                 </div>
             </div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Configuration Management</CardTitle>
-          <CardDescription>Export your current application settings (excluding users) as a JSON file, or import settings from a backup file.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col sm:flex-row gap-2">
-          <Button variant="outline" onClick={handleExportSettings} disabled={isPending}>
-            <Download className="mr-2 h-4 w-4" />
-            Export Settings
-          </Button>
-          <Button variant="outline" onClick={() => setIsSettingsImportDialogOpen(true)} disabled={isPending}>
-            <Upload className="mr-2 h-4 w-4" />
-            Import Settings
-          </Button>
         </CardContent>
       </Card>
 

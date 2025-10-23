@@ -54,6 +54,7 @@ export default function UsersPage() {
   const [editedUsername, setEditedUsername] = useState('');
   const [editedName, setEditedName] = useState('');
   const [editedEmail, setEditedEmail] = useState('');
+  const [editedRole, setEditedRole] = useState<'user' | 'admin'>('user');
   
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -181,6 +182,7 @@ export default function UsersPage() {
         setEditedName(userToEdit.name);
         setEditedUsername(userToEdit.username);
         setEditedEmail(userToEdit.email || '');
+        setEditedRole(userToEdit.role);
         setIsEditDialogOpen(true);
     };
 
@@ -196,6 +198,7 @@ export default function UsersPage() {
                 name: editedName,
                 username: editedUsername,
                 email: editedEmail,
+                role: editedRole,
             };
             await updateUser(updatedDetails);
             toast({ title: "User Updated", description: `${editedName}'s details have been saved.` });
@@ -433,6 +436,27 @@ export default function UsersPage() {
                     <div className="space-y-2">
                         <Label htmlFor="edit-user-email">Email Address</Label>
                         <Input id="edit-user-email" type="email" value={editedEmail} onChange={(e) => setEditedEmail(e.target.value)} disabled={isPending} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Role</Label>
+                        <RadioGroup 
+                            value={editedRole} 
+                            onValueChange={(v: 'user'|'admin') => setEditedRole(v)} 
+                            className="flex gap-4 pt-2" 
+                            disabled={isPending || editingUser?.id === user?.id}
+                        >
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="user" id="edit-role-user" />
+                                <Label htmlFor="edit-role-user">User</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="admin" id="edit-role-admin" />
+                                <Label htmlFor="edit-role-admin">Admin</Label>
+                            </div>
+                        </RadioGroup>
+                         {editingUser?.id === user?.id && (
+                            <p className="text-xs text-muted-foreground">You cannot change your own role.</p>
+                        )}
                     </div>
                 </div>
                 <DialogFooter>
