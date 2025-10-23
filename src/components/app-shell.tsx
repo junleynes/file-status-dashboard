@@ -41,7 +41,7 @@ import {
   DropdownMenuPortal,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { BarChartIcon, CogIcon, LogOutIcon, Moon, Sun, Laptop, KeyRound, UserCircle, UploadCloud, XCircle, LineChart, Users, Gamepad2, ChevronDown, Snake, Puzzle } from 'lucide-react';
+import { BarChartIcon, CogIcon, LogOutIcon, Moon, Sun, Laptop, KeyRound, UserCircle, UploadCloud, XCircle, LineChart, Users, Gamepad2, ChevronDown, Puzzle } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { useTheme } from "next-themes";
 import { BrandLogo } from './brand-logo';
@@ -459,7 +459,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                          {isGameMenuOpen && (
                             <SidebarMenuSub>
                                 <SidebarMenuSubButton onClick={() => {}} isActive={false}>
-                                    <Snake />
+                                    <span className="w-4 h-4 mr-2" />
                                     <span>Snake</span>
                                 </SidebarMenuSubButton>
                                 <SidebarMenuSubButton onClick={() => {}} isActive={false}>
@@ -484,5 +484,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-
-    
