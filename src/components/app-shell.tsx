@@ -11,8 +11,6 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarTrigger,
-  SidebarMenuSub,
-  SidebarMenuSubButton
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { useBranding } from '@/hooks/use-branding';
@@ -41,7 +39,7 @@ import {
   DropdownMenuPortal,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { BarChartIcon, CogIcon, LogOutIcon, Moon, Sun, Laptop, KeyRound, UserCircle, UploadCloud, XCircle, LineChart, Users, Gamepad2, ChevronDown, Puzzle } from 'lucide-react';
+import { BarChartIcon, CogIcon, LogOutIcon, Moon, Sun, Laptop, KeyRound, UserCircle, UploadCloud, XCircle, LineChart, Users, Gamepad2, Puzzle } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { useTheme } from "next-themes";
 import { BrandLogo } from './brand-logo';
@@ -335,7 +333,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [maintenanceSettings, setMaintenanceSettings] = useState<MaintenanceSettings | null>(null);
   const [gameSettings, setGameSettings] = useState<GameSettings | null>(null);
-  const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
 
   useEffect(() => {
     async function checkSettings() {
@@ -446,29 +443,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </SidebarMenu>
              {gameSettings.enabled && (
                 <SidebarMenu className="mt-auto">
-                    <SidebarMenuItem>
-                        <SidebarMenuButton
-                            onClick={() => setIsGameMenuOpen(!isGameMenuOpen)}
-                            isActive={pathname.startsWith('/games')}
-                            tooltip="Games"
-                        >
-                            <Gamepad2 />
-                            <span>Games</span>
-                            <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${isGameMenuOpen ? 'rotate-180' : ''}`} />
-                        </SidebarMenuButton>
-                         {isGameMenuOpen && (
-                            <SidebarMenuSub>
-                                <SidebarMenuSubButton onClick={() => {}} isActive={false}>
-                                    <Puzzle className="mr-2 h-4 w-4" />
-                                    <span>Snake</span>
-                                </SidebarMenuSubButton>
-                                <SidebarMenuSubButton onClick={() => {}} isActive={false}>
-                                    <Puzzle className="mr-2 h-4 w-4" />
-                                    <span>Dinosaur Game</span>
-                                </SidebarMenuSubButton>
-                            </SidebarMenuSub>
-                        )}
-                    </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      onClick={() => router.push('/games/dinosaur')}
+                      isActive={pathname.startsWith('/games/dinosaur')}
+                      tooltip="Dinosaur Game"
+                    >
+                      <Puzzle />
+                      <span>Dinosaur Game</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 </SidebarMenu>
             )}
           </SidebarContent>
