@@ -312,7 +312,12 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-             <CardTitle>File Status</CardTitle>
+            <CardTitle>
+                File Status
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    (Showing {filteredFiles.length} of {files.length} files)
+                </span>
+            </CardTitle>
         </CardHeader>
         <CardContent>
           {!canWrite && (
