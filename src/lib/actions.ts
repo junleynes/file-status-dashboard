@@ -33,7 +33,7 @@ export async function generateTwoFactorSecretForUser(userId: string, username: s
     const secret = authenticator.generateSecret();
     user.twoFactorSecret = secret;
     await db.updateUser(user);
-    revalidatePath('/settings'); // To update user data for other admins
+    revalidatePath('/users'); // To update user data for other admins
   }
   
   const otpauth = authenticator.keyuri(username, issuer, user.twoFactorSecret!);
@@ -50,7 +50,7 @@ export async function enableTwoFactor(userId: string) {
 
     user.twoFactorRequired = true;
     await db.updateUser(user);
-    revalidatePath('/settings');
+    revalidatePath('/users');
 }
 
 export async function disableTwoFactor(userId: string) {
@@ -62,7 +62,7 @@ export async function disableTwoFactor(userId: string) {
     user.twoFactorRequired = false;
     user.twoFactorSecret = null; // Clear the secret when disabling
     await db.updateUser(user);
-    revalidatePath('/settings');
+    revalidatePath('/users');
 }
 
 
@@ -292,7 +292,7 @@ export async function resetUserPasswordByAdmin(userId: string, newPassword: stri
 export async function addUser(newUser: User): Promise<{ success: boolean, message?: string }> {
   const result = await db.addUser(newUser);
   if (result.success) {
-    revalidatePath('/settings');
+    revalidatePath('/users');
     return { success: true };
   }
   return { success: false, message: "A user with this username or email already exists." };
@@ -300,12 +300,12 @@ export async function addUser(newUser: User): Promise<{ success: boolean, messag
 
 export async function removeUser(userId: string) {
     await db.removeUser(userId);
-    revalidatePath('/settings');
+    revalidatePath('/users');
 }
 
 export async function updateUser(user: User) {
     await db.updateUser(user);
-    revalidatePath('/settings');
+    revalidatePath('/users');
 }
 
 export async function updateMonitoredPaths(paths: MonitoredPaths) {
@@ -391,6 +391,51 @@ export async function importFileStatusesFromCsv(csvContent: string): Promise<{ i
     }
 }
 
+export async function exportUsersToCsv(): Promise<{ csv?: string; error?: string }> {
+    try {
+        const users = await db.getUsers();
+        if (users.length === 0) {
+            return { error: "There are no users to export." };
+        }
+        const csv = Papa.unparse(users);
+        return { csv };
+    } catch (error: any) {
+        console.error("Error exporting users to CSV:", error);
+        return { error: "An unexpected error occurred during export." };
+    }
+}
+
+export async function importUsersFromCsv(csvContent: string): Promise<{ importedCount?: number; error?: string }> {
+    try {
+        const result = Papa.parse<User>(csvContent, { header: true, skipEmptyLines: true });
+
+        if (result.errors.length > 0) {
+            console.error("CSV Parsing errors:", result.errors);
+            return { error: `Error parsing CSV on row ${result.errors[0].row}: ${result.errors[0].message}` };
+        }
+        
+        const requiredFields = ['id', 'username', 'name', 'role', 'password'];
+        if (!result.meta.fields || !requiredFields.every(field => result.meta.fields!.includes(field))) {
+            return { error: `CSV must contain the following columns: ${requiredFields.join(', ')}` };
+        }
+
+        const usersToImport = result.data.map(user => ({
+            ...user,
+            email: user.email || '',
+            avatar: user.avatar || null,
+            twoFactorRequired: user.twoFactorRequired === true || user.twoFactorRequired === "true" || user.twoFactorRequired === "1",
+            twoFactorSecret: user.twoFactorSecret || null,
+        }));
+
+        await db.bulkUpsertUsersWithPasswords(usersToImport);
+        revalidatePath('/users');
+        return { importedCount: usersToImport.length };
+    } catch (error: any) {
+        console.error("Error importing users from CSV:", error);
+        return { error: `An unexpected error occurred during import: ${error.message}` };
+    }
+}
+
 export async function generateStatisticsReport(): Promise<{ csv?: string; error?: string }> {
     try {
         const files = await db.getFileStatuses();
@@ -448,11 +493,8 @@ export async function exportAllSettings(): Promise<{ settings?: string; error?: 
     try {
         const fullDb = await db.readDb();
         
-        // We don't want to export passwords or file statuses.
-        const usersWithoutPasswords = fullDb.users.map(({ password, ...user }) => user);
-        
         const settingsToExport: Partial<Database> = {
-            users: usersWithoutPasswords,
+            // Users are explicitly excluded
             branding: fullDb.branding,
             monitoredPaths: fullDb.monitoredPaths,
             monitoredExtensions: fullDb.monitoredExtensions,
@@ -476,6 +518,10 @@ export async function importAllSettings(settings: Partial<Database>): Promise<{ 
         if (!settings || typeof settings !== 'object') {
             return { success: false, error: 'Invalid settings file format.' };
         }
+        
+        if (settings.users) {
+            return { success: false, error: 'Settings import should not contain user data. Please use the dedicated user import feature.' };
+        }
 
         const dbWrites: Promise<any>[] = [];
 
@@ -488,12 +534,6 @@ export async function importAllSettings(settings: Partial<Database>): Promise<{ 
         if (settings.failureRemark) dbWrites.push(db.updateFailureRemark(settings.failureRemark));
         if (settings.smtpSettings) dbWrites.push(db.updateSmtpSettings(settings.smtpSettings));
         
-        if (settings.users && Array.isArray(settings.users)) {
-            // This is a simple upsert. It will add new users and overwrite existing ones, but will not delete users that are not in the import file.
-            // Passwords are not included in the export, so they won't be overwritten here.
-            dbWrites.push(db.bulkUpsertUsers(settings.users));
-        }
-        
         await Promise.all(dbWrites);
         
         revalidatePath('/settings');
@@ -505,5 +545,3 @@ export async function importAllSettings(settings: Partial<Database>): Promise<{ 
         return { success: false, error: 'An unexpected error occurred during the import process.' };
     }
 }
-
-    

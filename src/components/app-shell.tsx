@@ -39,7 +39,7 @@ import {
   DropdownMenuPortal,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { BarChartIcon, CogIcon, LogOutIcon, Moon, Sun, Laptop, KeyRound, UserCircle, UploadCloud, XCircle, LineChart } from 'lucide-react';
+import { BarChartIcon, CogIcon, LogOutIcon, Moon, Sun, Laptop, KeyRound, UserCircle, UploadCloud, XCircle, LineChart, Users } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { useTheme } from "next-themes";
 import { BrandLogo } from './brand-logo';
@@ -388,16 +388,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {user?.role === 'admin' && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => router.push('/settings')}
-                    isActive={pathname === '/settings'}
-                    tooltip="Settings"
-                  >
-                    <CogIcon />
-                    <span>Settings</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                <>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      onClick={() => router.push('/users')}
+                      isActive={pathname === '/users'}
+                      tooltip="Users"
+                    >
+                      <Users />
+                      <span>Users</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      onClick={() => router.push('/settings')}
+                      isActive={pathname === '/settings'}
+                      tooltip="Settings"
+                    >
+                      <CogIcon />
+                      <span>Settings</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </>
               )}
             </SidebarMenu>
           </SidebarContent>

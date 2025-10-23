@@ -9,12 +9,10 @@ import { useBranding } from "@/hooks/use-branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { MonitoredPath, MonitoredPaths, User, CleanupSettings, SmtpSettings, ProcessingSettings, Database } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff, FileImage, Mail, Send, Pencil, Download, Upload } from "lucide-react";
+import type { MonitoredPath, MonitoredPaths, CleanupSettings, SmtpSettings, ProcessingSettings, Database } from "@/types";
+import { UploadCloud, XCircle, Clock, Save, Network, Info, FileImage, Upload, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Dialog,
   DialogContent,
@@ -33,20 +31,16 @@ import {
     updateCleanupSettings,
     testPath,
     updateFailureRemark,
-    enableTwoFactor,
-    disableTwoFactor,
     updateSmtpSettings,
     testSmtpConnection,
-    sendPasswordResetEmail,
     updateProcessingSettings,
-    resetUserPasswordByAdmin,
     exportAllSettings,
     importAllSettings,
 } from "@/lib/actions";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { BrandLogo } from "@/components/brand-logo";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AnimatePresence, motion } from "framer-motion";
+import { PlusCircle, Trash2, Edit, Check } from "lucide-react";
 
 
 const defaultImportPath: MonitoredPath = {
@@ -78,7 +72,7 @@ const defaultProcessingSettings: ProcessingSettings = {
 
 
 export default function SettingsPage() {
-  const { user, loading, users, addUser, removeUser, updateUser, refreshUsers } = useAuth();
+  const { user, loading } = useAuth();
   const { brandName, logo, favicon, footerText, setBrandName, setLogo, setFavicon, setFooterText, brandingLoading } = useBranding();
   const router = useRouter();
 
@@ -89,24 +83,6 @@ export default function SettingsPage() {
   const [newExtension, setNewExtension] = useState('');
   const [localBrandName, setLocalBrandName] = useState(brandName);
   const [localFooterText, setLocalFooterText] = useState(footerText);
-
-  const [newUsername, setNewUsername] = useState('');
-  const [newUserName, setNewUserName] = useState('');
-  const [newUserEmail, setNewUserEmail] = useState('');
-  const [newUserPassword, setNewUserPassword] = useState('');
-  const [newUserRole, setNewUserRole] = useState<'user' | 'admin'>('user');
-
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
-
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editedUsername, setEditedUsername] = useState('');
-  const [editedName, setEditedName] = useState('');
-  const [editedEmail, setEditedEmail] = useState('');
-
 
   const [cleanupSettings, setCleanupSettings] = useState<CleanupSettings>({
       status: { enabled: true, value: '7', unit: 'days'},
@@ -307,154 +283,6 @@ export default function SettingsPage() {
     });
   }
 
-
-  const handleAddUser = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newUsername || !newUserName || !newUserPassword) {
-      toast({ title: "Missing User Information", description: "Please fill out Username, Full Name, and Password.", variant: "destructive" });
-      return;
-    }
-    startTransition(async () => {
-        const result = await addUser({
-            id: 'user-' + Date.now(),
-            username: newUsername,
-            name: newUserName,
-            email: newUserEmail,
-            password: newUserPassword,
-            role: newUserRole,
-            avatar: null
-        });
-
-        if (result.success) {
-            toast({ title: "User Added", description: `User ${newUserName} has been added successfully.` });
-            setNewUsername('');
-            setNewUserName('');
-            setNewUserEmail('');
-            setNewUserPassword('');
-            setNewUserRole('user');
-        } else {
-            toast({ title: "Error", description: result.message, variant: "destructive" });
-        }
-    });
-  };
-
-  const handleRemoveUser = (userId: string) => {
-    if (user?.id === userId) {
-      toast({ title: "Cannot Remove Self", description: "You cannot remove your own user account.", variant: "destructive" });
-      return;
-    }
-    startTransition(async () => {
-        await removeUser(userId);
-        toast({ title: "User Removed", description: "The user has been removed successfully.", variant: "destructive" });
-    });
-  };
-
-  const handleOpenResetDialog = (userToReset: User) => {
-    setSelectedUser(userToReset);
-    setNewPassword('');
-    setConfirmNewPassword('');
-    setIsResetDialogOpen(true);
-  };
-
-  const handlePasswordResetEmail = () => {
-    if (!selectedUser) return;
-
-    if (!selectedUser.email) {
-      toast({
-        title: "Cannot Reset Password",
-        description: "This user does not have a registered email address to send the temporary password to.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    startTransition(async () => {
-      const result = await sendPasswordResetEmail(selectedUser.id);
-      if (result.success) {
-        toast({
-          title: "Password Reset Email Sent",
-          description: `A temporary password has been sent to ${selectedUser.name}.`
-        });
-        setIsResetDialogOpen(false);
-        setSelectedUser(null);
-      } else {
-        toast({
-          title: "Failed to Send Email",
-          description: result.error,
-          variant: "destructive"
-        });
-      }
-    });
-  };
-
-  const handleManualPasswordReset = () => {
-    if (!selectedUser || !newPassword) return;
-    
-    if (newPassword !== confirmNewPassword) {
-        toast({ title: "Passwords do not match", variant: "destructive" });
-        return;
-    }
-     if (newPassword.length < 6) {
-        toast({ title: "Password must be at least 6 characters long.", variant: "destructive" });
-        return;
-    }
-
-    startTransition(async () => {
-        const result = await resetUserPasswordByAdmin(selectedUser.id, newPassword);
-        if (result.success) {
-            toast({ title: "Password Reset Successfully", description: `The password for ${selectedUser.name} has been updated.` });
-            setIsResetDialogOpen(false);
-            setSelectedUser(null);
-        } else {
-            toast({ title: "Failed to Reset Password", description: result.error, variant: "destructive" });
-        }
-    });
-  };
-  
-    const handleOpenEditDialog = (userToEdit: User) => {
-        setEditingUser(userToEdit);
-        setEditedName(userToEdit.name);
-        setEditedUsername(userToEdit.username);
-        setEditedEmail(userToEdit.email || '');
-        setIsEditDialogOpen(true);
-    };
-
-    const handleUpdateUser = () => {
-        if (!editingUser || !editedName || !editedUsername) {
-             toast({ title: "Missing Information", description: "Full Name and Username cannot be empty.", variant: "destructive" });
-            return;
-        }
-
-        startTransition(async () => {
-            const updatedDetails: User = {
-                ...editingUser,
-                name: editedName,
-                username: editedUsername,
-                email: editedEmail,
-            };
-            await updateUser(updatedDetails);
-            toast({ title: "User Updated", description: `${editedName}'s details have been saved.` });
-            setIsEditDialogOpen(false);
-            setEditingUser(null);
-        });
-    };
-  
-  const handleEnableTwoFactor = async (userId: string) => {
-    startTransition(async () => {
-        await enableTwoFactor(userId);
-        await refreshUsers();
-        toast({ title: "2FA Enabled", description: "User will be prompted to set up 2FA on their next login." });
-    });
-  };
-
-  const handleDisableTwoFactor = async (userId: string) => {
-    startTransition(async () => {
-        await disableTwoFactor(userId);
-        await refreshUsers();
-        toast({ title: "2FA Disabled", description: "Two-factor authentication has been disabled for this user." });
-    });
-  };
-
   const handleSaveCleanupSettings = () => {
     startTransition(async () => {
         await updateCleanupSettings(cleanupSettings);
@@ -636,7 +464,7 @@ export default function SettingsPage() {
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
         <p className="text-muted-foreground">
-          Configure application settings, users, and branding.
+          Configure application settings and branding.
         </p>
       </div>
 
@@ -721,109 +549,6 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-
-      <Card>
-        <CardHeader>
-          <CardTitle>User Management</CardTitle>
-          <CardDescription>Add, remove, and manage user accounts.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAddUser} className="mb-6 space-y-4">
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-               <div className="space-y-2">
-                  <Label htmlFor="new-user-username">Username</Label>
-                  <Input id="new-user-username" placeholder="johndoe" value={newUsername} onChange={(e) => setNewUsername(e.target.value)} disabled={isPending} />
-              </div>
-              <div className="space-y-2">
-                  <Label htmlFor="new-user-name">Full Name</Label>
-                  <Input id="new-user-name" placeholder="John Doe" value={newUserName} onChange={(e) => setNewUserName(e.target.value)} disabled={isPending} />
-              </div>
-              <div className="space-y-2">
-                  <Label htmlFor="new-user-email">Email (Optional)</Label>
-                  <Input id="new-user-email" type="email" placeholder="user@example.com" value={newUserEmail} onChange={(e) => setNewUserEmail(e.target.value)} disabled={isPending} />
-              </div>
-               <div className="space-y-2">
-                  <Label htmlFor="new-user-password">Password</Label>
-                  <Input id="new-user-password" type="password" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} disabled={isPending} />
-              </div>
-              <div className="space-y-2">
-                  <Label>Role</Label>
-                  <RadioGroup value={newUserRole} onValueChange={(v: 'user'|'admin') => setNewUserRole(v)} className="flex gap-4 pt-2" disabled={isPending}>
-                      <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="user" id="role-user" />
-                          <Label htmlFor="role-user">User</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="admin" id="role-admin" />
-                          <Label htmlFor="role-admin">Admin</Label>
-                      </div>
-                  </RadioGroup>
-              </div>
-               <Button type="submit" disabled={isPending} className="w-full lg:w-auto">
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Add User
-              </Button>
-            </div>
-          </form>
-
-          <div className="space-y-2 rounded-lg border p-2">
-            <h3 className="text-sm font-medium px-2 pt-1 flex items-center gap-2"><Users className="h-4 w-4" /> Current Users</h3>
-            <AnimatePresence>
-                {users.length > 0 ? (
-                    users.map((u: User) => (
-                        <motion.div
-                            key={u.id}
-                            layout
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            transition={{ duration: 0.3 }}
-                            className="flex flex-col sm:flex-row items-start sm:items-center justify-between rounded-md p-2 hover:bg-muted/50 gap-2"
-                        >
-                            <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8">
-                                    {u.avatar && <AvatarImage src={u.avatar} alt={u.name ?? ''} />}
-                                    <AvatarFallback>{u.name?.[0].toUpperCase()}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <p className="font-medium text-sm">{u.name} <span className="text-xs text-muted-foreground">({u.role})</span></p>
-                                    <p className="text-xs text-muted-foreground">@{u.username} {u.email && `· ${u.email}`}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-1 flex-wrap self-end sm:self-center">
-                                 <Button variant="outline" size="sm" onClick={() => handleOpenEditDialog(u)} disabled={isPending}>
-                                    <Pencil className="mr-2 h-4 w-4" />
-                                    <span className="hidden sm:inline">Edit User</span>
-                                </Button>
-                                {u.twoFactorRequired ? (
-                                    <Button variant="outline" size="sm" onClick={() => handleDisableTwoFactor(u.id)} disabled={isPending}>
-                                        <ShieldOff className="mr-2 h-4 w-4 text-destructive" />
-                                        <span className="hidden sm:inline">Disable 2FA</span>
-                                    </Button>
-                                ) : (
-                                     <Button variant="outline" size="sm" onClick={() => handleEnableTwoFactor(u.id)} disabled={isPending}>
-                                        <ShieldCheck className="mr-2 h-4 w-4 text-green-600" />
-                                        <span className="hidden sm:inline">Enable 2FA</span>
-                                    </Button>
-                                )}
-                                <Button variant="outline" size="sm" onClick={() => handleOpenResetDialog(u)} disabled={isPending}>
-                                    <KeyRound className="mr-2 h-4 w-4" />
-                                    <span className="hidden sm:inline">Reset Password</span>
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={() => handleRemoveUser(u.id)} disabled={user?.id === u.id || isPending}>
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
-                            </div>
-                        </motion.div>
-                    ))
-                ) : (
-                    <div className="text-center text-muted-foreground p-4">No users found.</div>
-                )}
-            </AnimatePresence>
-          </div>
-        </CardContent>
-      </Card>
-      
        <Card>
         <CardHeader>
           <CardTitle>SMTP Configuration</CardTitle>
@@ -1102,7 +827,7 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Configuration Management</CardTitle>
-          <CardDescription>Export your current settings as a JSON file, or import settings from a backup file.</CardDescription>
+          <CardDescription>Export your current application settings (excluding users) as a JSON file, or import settings from a backup file.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={handleExportSettings} disabled={isPending}>
@@ -1115,127 +840,13 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Edit User: {editingUser?.name}</DialogTitle>
-                    <DialogDescription>
-                        Update the user's details below.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-user-name">Full Name</Label>
-                        <Input id="edit-user-name" value={editedName} onChange={(e) => setEditedName(e.target.value)} disabled={isPending} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-user-username">Username</Label>
-                        <Input id="edit-user-username" value={editedUsername} onChange={(e) => setEditedUsername(e.target.value)} disabled={isPending} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-user-email">Email Address</Label>
-                        <Input id="edit-user-email" type="email" value={editedEmail} onChange={(e) => setEditedEmail(e.target.value)} disabled={isPending} />
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
-                    <Button onClick={handleUpdateUser} disabled={isPending}>
-                        {isPending ? "Saving..." : "Save Changes"}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
 
-       <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reset Password for {selectedUser?.name}</DialogTitle>
-             <DialogDescription>
-                Choose a method to reset the user's password.
-            </DialogDescription>
-          </DialogHeader>
-          <Tabs defaultValue="send-email" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="send-email" disabled={!selectedUser?.email}>Send Reset Email</TabsTrigger>
-                <TabsTrigger value="set-manually">Set Manually</TabsTrigger>
-            </TabsList>
-            <TabsContent value="send-email">
-                <div className="py-4 space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                        This will generate a new random password and email it to the user.
-                    </p>
-                    {selectedUser?.email ? (
-                        <Alert>
-                        <Mail className="h-4 w-4" />
-                        <AlertDescription>
-                            An email with the temporary password will be sent to <strong>{selectedUser.email}</strong>.
-                        </AlertDescription>
-                        </Alert>
-                    ) : (
-                        <Alert variant="destructive">
-                        <MessageSquareWarning className="h-4 w-4" />
-                        <AlertDescription>
-                            This user does not have a registered email address. Cannot send password reset email.
-                        </AlertDescription>
-                        </Alert>
-                    )}
-                </div>
-                 <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsResetDialogOpen(false)}>Cancel</Button>
-                    <Button 
-                        onClick={handlePasswordResetEmail} 
-                        disabled={isPending || !selectedUser?.email}
-                    >
-                    {isPending ? 'Sending...' : 'Send Reset Email'}
-                    </Button>
-                </DialogFooter>
-            </TabsContent>
-            <TabsContent value="set-manually">
-                 <div className="py-4 space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                        Enter a new password for the user. They will not be notified of this change.
-                    </p>
-                    <div className="space-y-2">
-                        <Label htmlFor="new-password">New Password</Label>
-                        <Input 
-                            id="new-password"
-                            type="password" 
-                            value={newPassword} 
-                            onChange={(e) => setNewPassword(e.target.value)} 
-                            disabled={isPending}
-                        />
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="confirm-new-password">Confirm New Password</Label>
-                        <Input 
-                            id="confirm-new-password"
-                            type="password" 
-                            value={confirmNewPassword} 
-                            onChange={(e) => setConfirmNewPassword(e.target.value)} 
-                            disabled={isPending}
-                        />
-                    </div>
-                </div>
-                 <DialogFooter>
-                    <Button variant="outline" onClick={() => setIsResetDialogOpen(false)}>Cancel</Button>
-                    <Button 
-                        onClick={handleManualPasswordReset} 
-                        disabled={isPending || !newPassword || newPassword !== confirmNewPassword}
-                    >
-                    {isPending ? 'Saving...' : 'Set New Password'}
-                    </Button>
-                </DialogFooter>
-            </TabsContent>
-          </Tabs>
-        </DialogContent>
-      </Dialog>
-      
       <Dialog open={isSettingsImportDialogOpen} onOpenChange={setIsSettingsImportDialogOpen}>
           <DialogContent>
               <DialogHeader>
                   <DialogTitle>Import Settings from JSON</DialogTitle>
                   <DialogDescription>
-                      Upload a JSON backup file to restore application settings. This will overwrite existing settings. User passwords will not be affected.
+                      Upload a JSON backup file to restore application settings. This will overwrite existing settings and reload the application.
                   </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -1245,7 +856,6 @@ export default function SettingsPage() {
                   </div>
                   {settingsImportError && (
                       <Alert variant="destructive">
-                          <AlertTriangle className="h-4 w-4" />
                           <AlertTitle>Error</AlertTitle>
                           <AlertDescription>{settingsImportError}</AlertDescription>
                       </Alert>
@@ -1262,5 +872,3 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
-
-    
