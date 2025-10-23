@@ -52,7 +52,7 @@ export default function DashboardPage() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
 
   const { toast } = useToast();
@@ -329,13 +329,55 @@ export default function DashboardPage() {
        </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>
                 File Status
                 <span className="ml-2 text-sm font-normal text-muted-foreground">
                     (Showing {filteredFiles.length} files)
                 </span>
             </CardTitle>
+             <div className="flex items-center gap-4">
+                 <div className="flex items-center gap-4">
+                    <span className="text-sm text-muted-foreground">
+                        Page {currentPage} of {totalPages}
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        >
+                        Previous
+                        </Button>
+                        <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        >
+                        Next
+                        </Button>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Rows per page:</span>
+                    <Select
+                    value={itemsPerPage.toString()}
+                    onValueChange={(value) => setItemsPerPage(Number(value))}
+                    >
+                    <SelectTrigger className="w-20">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="5">5</SelectItem>
+                        <SelectItem value="10">10</SelectItem>
+                        <SelectItem value="25">25</SelectItem>
+                        <SelectItem value="50">50</SelectItem>
+                    </SelectContent>
+                    </Select>
+                </div>
+            </div>
         </CardHeader>
         <CardContent>
           {!canWrite && (
@@ -379,47 +421,6 @@ export default function DashboardPage() {
             isReadOnly={!canWrite}
             userRole={user?.role}
           />
-           <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Rows per page:</span>
-                <Select
-                  value={itemsPerPage.toString()}
-                  onValueChange={(value) => setItemsPerPage(Number(value))}
-                >
-                  <SelectTrigger className="w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-4">
-                 <span className="text-sm text-muted-foreground">
-                    Page {currentPage} of {totalPages}
-                </span>
-                <div className="flex items-center gap-2">
-                    <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    >
-                    Previous
-                    </Button>
-                    <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    >
-                    Next
-                    </Button>
-                </div>
-              </div>
-          </div>
         </CardContent>
       </Card>
       
