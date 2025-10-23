@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { MonitoredPath, MonitoredPaths, CleanupSettings, SmtpSettings, ProcessingSettings, Database, MaintenanceSettings } from "@/types";
-import { UploadCloud, XCircle, Clock, Save, Network, Info, FileImage, Upload, Download, Send, AlertTriangle } from "lucide-react";
+import type { MonitoredPath, MonitoredPaths, CleanupSettings, SmtpSettings, ProcessingSettings, Database, MaintenanceSettings, GameSettings } from "@/types";
+import { UploadCloud, XCircle, Clock, Save, Network, Info, FileImage, Upload, Download, Send, AlertTriangle, Gamepad2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import {
@@ -38,6 +38,7 @@ import {
     exportAllSettings,
     importAllSettings,
     updateMaintenanceSettings,
+    updateGameSettings,
 } from "@/lib/actions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { BrandLogo } from "@/components/brand-logo";
@@ -77,6 +78,10 @@ const defaultMaintenanceSettings: MaintenanceSettings = {
     message: 'The application is currently down for maintenance. We’re performing necessary updates to improve performance and reliability. Please check back later.',
 };
 
+const defaultGameSettings: GameSettings = {
+    enabled: false,
+};
+
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
@@ -104,6 +109,7 @@ export default function SettingsPage() {
   
   const [processingSettings, setProcessingSettings] = useState<ProcessingSettings>(defaultProcessingSettings);
   const [maintenanceSettings, setMaintenanceSettings] = useState<MaintenanceSettings>(defaultMaintenanceSettings);
+  const [gameSettings, setGameSettings] = useState<GameSettings>(defaultGameSettings);
 
 
   const [isSettingsImportDialogOpen, setIsSettingsImportDialogOpen] = useState(false);
@@ -142,6 +148,7 @@ export default function SettingsPage() {
         setSmtpSettings(fullDb.smtpSettings || defaultSmtpSettings);
         setProcessingSettings(fullDb.processingSettings || defaultProcessingSettings);
         setMaintenanceSettings(fullDb.maintenanceSettings || defaultMaintenanceSettings);
+        setGameSettings(fullDb.gameSettings || defaultGameSettings);
     }
     fetchData();
   }, [])
@@ -432,6 +439,15 @@ export default function SettingsPage() {
       });
   }
 
+  const handleGameSettingsChange = (enabled: boolean) => {
+    startTransition(async () => {
+        const newSettings = { ...gameSettings, enabled };
+        await updateGameSettings(newSettings);
+        setGameSettings(newSettings);
+        toast({ title: "Game Settings Saved", description: "Your preferences for the game section have been updated." });
+    });
+  }
+
 
   if (loading || user?.role !== 'admin' || brandingLoading) {
     return null;
@@ -540,7 +556,7 @@ export default function SettingsPage() {
               placeholder="e.g., The app is undergoing scheduled maintenance. We'll be back shortly."
               value={maintenanceSettings.message}
               onChange={(e) => handleMaintenanceSettingsChange('message', e.target.value)}
-              disabled={isPending}
+              disabled={isPending || !maintenanceSettings.enabled}
               rows={3}
             />
           </div>
@@ -913,6 +929,32 @@ export default function SettingsPage() {
             </div>
         </CardContent>
       </Card>
+      
+      <Card>
+        <CardHeader>
+            <CardTitle>Game Section</CardTitle>
+            <CardDescription>Enable or disable the game section in the sidebar.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                    <Label htmlFor="game-mode" className="text-base flex items-center">
+                       <Gamepad2 className="mr-2 h-5 w-5" />
+                        Enable Game Section
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                        When enabled, a "Games" menu will appear in the sidebar for all users.
+                    </p>
+                </div>
+                <Switch
+                    id="game-mode"
+                    checked={gameSettings.enabled}
+                    onCheckedChange={handleGameSettingsChange}
+                    disabled={isPending}
+                />
+            </div>
+        </CardContent>
+      </Card>
 
       <Dialog open={isSettingsImportDialogOpen} onOpenChange={setIsSettingsImportDialogOpen}>
           <DialogContent>
@@ -945,3 +987,5 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
+
+    

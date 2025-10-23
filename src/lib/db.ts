@@ -4,7 +4,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import Database from 'better-sqlite3';
-import type { Database as JsonDatabase, BrandingSettings, CleanupSettings, FileStatus, MonitoredPaths, ProcessingSettings, SmtpSettings, User, MaintenanceSettings } from '../types';
+import type { Database as JsonDatabase, BrandingSettings, CleanupSettings, FileStatus, MonitoredPaths, ProcessingSettings, SmtpSettings, User, MaintenanceSettings, GameSettings } from '../types';
 
 const dbPath = path.resolve(process.cwd(), 'src/lib/database.sqlite');
 const jsonDbPath = path.resolve(process.cwd(), 'src/lib/database.json');
@@ -66,6 +66,9 @@ function migrateDataFromJson() {
             insertSetting.run('smtpSettings', JSON.stringify(jsonData.smtpSettings));
             if (jsonData.maintenanceSettings) {
                 insertSetting.run('maintenanceSettings', JSON.stringify(jsonData.maintenanceSettings));
+            }
+            if (jsonData.gameSettings) {
+                insertSetting.run('gameSettings', JSON.stringify(jsonData.gameSettings));
             }
             console.log('[DB] Migrated application settings.');
 
@@ -368,6 +371,13 @@ export async function updateMaintenanceSettings(settings: MaintenanceSettings): 
     return updateSetting('maintenanceSettings', settings);
 }
 
+export async function getGameSettings(): Promise<GameSettings> {
+    return getSetting<GameSettings>('gameSettings', { enabled: false });
+}
+export async function updateGameSettings(settings: GameSettings): Promise<void> {
+    return updateSetting('gameSettings', settings);
+}
+
 
 // --- Compatibility layer for old readDb/writeDb calls ---
 // This allows us to refactor actions.ts incrementally.
@@ -383,6 +393,7 @@ export async function readDb(): Promise<JsonDatabase> {
         failureRemark,
         smtpSettings,
         maintenanceSettings,
+        gameSettings,
     ] = await Promise.all([
         getUsers(),
         getBranding(),
@@ -393,7 +404,8 @@ export async function readDb(): Promise<JsonDatabase> {
         getProcessingSettings(),
         getFailureRemark(),
         getSmtpSettings(),
-        getMaintenanceSettings()
+        getMaintenanceSettings(),
+        getGameSettings(),
     ]);
     return {
         users,
@@ -405,6 +417,9 @@ export async function readDb(): Promise<JsonDatabase> {
         processingSettings,
         failureRemark,
         smtpSettings,
-        maintenanceSettings
+        maintenanceSettings,
+        gameSettings,
     };
 }
+
+    

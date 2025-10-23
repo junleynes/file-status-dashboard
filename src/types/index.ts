@@ -71,6 +71,10 @@ export type MaintenanceSettings = {
   message: string;
 }
 
+export type GameSettings = {
+  enabled: boolean;
+}
+
 export type ChartData = {
     date: string;
     count: number;
@@ -87,4 +91,7 @@ export type Database = {
     failureRemark: string;
     smtpSettings: SmtpSettings;
     maintenanceSettings: MaintenanceSettings;
+    gameSettings: GameSettings;
 }
+
+    

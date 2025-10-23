@@ -11,6 +11,8 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarTrigger,
+  SidebarMenuSub,
+  SidebarMenuSubButton
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/use-auth';
 import { useBranding } from '@/hooks/use-branding';
@@ -39,13 +41,13 @@ import {
   DropdownMenuPortal,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { BarChartIcon, CogIcon, LogOutIcon, Moon, Sun, Laptop, KeyRound, UserCircle, UploadCloud, XCircle, LineChart, Users } from 'lucide-react';
+import { BarChartIcon, CogIcon, LogOutIcon, Moon, Sun, Laptop, KeyRound, UserCircle, UploadCloud, XCircle, LineChart, Users, Gamepad2, ChevronDown, Snake, Puzzle } from 'lucide-react';
 import { Skeleton } from './ui/skeleton';
 import { useTheme } from "next-themes";
 import { BrandLogo } from './brand-logo';
 import { useToast } from '@/hooks/use-toast';
-import { getMaintenanceSettings } from '@/lib/db';
-import type { MaintenanceSettings } from '@/types';
+import { getMaintenanceSettings, getGameSettings } from '@/lib/db';
+import type { MaintenanceSettings, GameSettings } from '@/types';
 
 
 function ProfileDialog() {
@@ -332,20 +334,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [maintenanceSettings, setMaintenanceSettings] = useState<MaintenanceSettings | null>(null);
+  const [gameSettings, setGameSettings] = useState<GameSettings | null>(null);
+  const [isGameMenuOpen, setIsGameMenuOpen] = useState(false);
 
   useEffect(() => {
-    async function checkMaintenance() {
-      const settings = await getMaintenanceSettings();
-      setMaintenanceSettings(settings);
+    async function checkSettings() {
+      const maint = await getMaintenanceSettings();
+      const games = await getGameSettings();
+      setMaintenanceSettings(maint);
+      setGameSettings(games);
 
-      if (settings.enabled && user?.role !== 'admin' && pathname !== '/maintenance') {
+      if (maint.enabled && user?.role !== 'admin' && pathname !== '/maintenance') {
         router.push('/maintenance');
-      } else if (!settings.enabled && pathname === '/maintenance') {
+      } else if (!maint.enabled && pathname === '/maintenance') {
         router.push('/dashboard');
       }
     }
     if(!loading) {
-      checkMaintenance();
+      checkSettings();
     }
   }, [pathname, router, user, loading]);
 
@@ -361,7 +367,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, pathname, router]);
 
-  if (loading || brandingLoading || maintenanceSettings === null) {
+  if (loading || brandingLoading || maintenanceSettings === null || gameSettings === null) {
     return (
        <div className="flex h-screen w-full items-center justify-center">
          <div className="flex flex-col items-center gap-4">
@@ -438,6 +444,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </>
               )}
             </SidebarMenu>
+             {gameSettings.enabled && (
+                <SidebarMenu className="mt-auto">
+                    <SidebarMenuItem>
+                        <SidebarMenuButton
+                            onClick={() => setIsGameMenuOpen(!isGameMenuOpen)}
+                            isActive={isGameMenuOpen}
+                            tooltip="Games"
+                        >
+                            <Gamepad2 />
+                            <span>Games</span>
+                            <ChevronDown className={`ml-auto h-4 w-4 transition-transform ${isGameMenuOpen ? 'rotate-180' : ''}`} />
+                        </SidebarMenuButton>
+                         {isGameMenuOpen && (
+                            <SidebarMenuSub>
+                                <SidebarMenuSubButton onClick={() => {}} isActive={false}>
+                                    <Snake />
+                                    <span>Snake</span>
+                                </SidebarMenuSubButton>
+                                <SidebarMenuSubButton onClick={() => {}} isActive={false}>
+                                    <Puzzle />
+                                    <span>Dinosaur Game</span>
+                                </SidebarMenuSubButton>
+                            </SidebarMenuSub>
+                        )}
+                    </SidebarMenuItem>
+                </SidebarMenu>
+            )}
           </SidebarContent>
         </Sidebar>
         <div className="flex-1 flex flex-col">
@@ -451,3 +484,5 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
+
+    
