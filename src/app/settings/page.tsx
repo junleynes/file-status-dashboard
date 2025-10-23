@@ -8,9 +8,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { MonitoredPath, MonitoredPaths, CleanupSettings, SmtpSettings, ProcessingSettings, Database } from "@/types";
-import { UploadCloud, XCircle, Clock, Save, Network, Info, FileImage, Upload, Download, Send } from "lucide-react";
+import type { MonitoredPath, MonitoredPaths, CleanupSettings, SmtpSettings, ProcessingSettings, Database, MaintenanceSettings } from "@/types";
+import { UploadCloud, XCircle, Clock, Save, Network, Info, FileImage, Upload, Download, Send, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import {
@@ -36,6 +37,7 @@ import {
     updateProcessingSettings,
     exportAllSettings,
     importAllSettings,
+    updateMaintenanceSettings,
 } from "@/lib/actions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { BrandLogo } from "@/components/brand-logo";
@@ -70,6 +72,11 @@ const defaultProcessingSettings: ProcessingSettings = {
     autoExpandPrefixes: false,
 };
 
+const defaultMaintenanceSettings: MaintenanceSettings = {
+    enabled: false,
+    message: 'The application is currently down for maintenance. Please check back later.',
+};
+
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
@@ -96,6 +103,8 @@ export default function SettingsPage() {
   const [smtpSettings, setSmtpSettings] = useState<SmtpSettings>(defaultSmtpSettings);
   
   const [processingSettings, setProcessingSettings] = useState<ProcessingSettings>(defaultProcessingSettings);
+  const [maintenanceSettings, setMaintenanceSettings] = useState<MaintenanceSettings>(defaultMaintenanceSettings);
+
 
   const [isSettingsImportDialogOpen, setIsSettingsImportDialogOpen] = useState(false);
   const [settingsImportFile, setSettingsImportFile] = useState<File | null>(null);
@@ -132,6 +141,7 @@ export default function SettingsPage() {
         setInitialFailureRemark(fullDb.failureRemark || '');
         setSmtpSettings(fullDb.smtpSettings || defaultSmtpSettings);
         setProcessingSettings(fullDb.processingSettings || defaultProcessingSettings);
+        setMaintenanceSettings(fullDb.maintenanceSettings || defaultMaintenanceSettings);
     }
     fetchData();
   }, [])
@@ -408,6 +418,20 @@ export default function SettingsPage() {
     });
   };
 
+  const handleMaintenanceSettingsChange = (field: keyof MaintenanceSettings, value: string | boolean) => {
+      setMaintenanceSettings(prev => ({ ...prev, [field]: value }));
+  }
+
+  const handleSaveMaintenanceSettings = () => {
+      startTransition(async () => {
+          await updateMaintenanceSettings(maintenanceSettings);
+          toast({ title: "Maintenance Settings Saved", description: "The application's maintenance status has been updated." });
+          if(maintenanceSettings.enabled) {
+            router.refresh(); // force a reload to check middleware
+          }
+      });
+  }
+
 
   if (loading || user?.role !== 'admin' || brandingLoading) {
     return null;
@@ -481,6 +505,55 @@ export default function SettingsPage() {
           <Button variant="outline" onClick={() => setIsSettingsImportDialogOpen(true)} disabled={isPending}>
             <Upload className="mr-2 h-4 w-4" />
             Import Settings
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Maintenance Mode</CardTitle>
+          <CardDescription>
+            Place the application in maintenance mode. Only administrators will be able to log in.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="maintenance-mode" className="text-base">
+                Enable Maintenance Mode
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                When enabled, non-admin users will see a maintenance page and will not be able to access the app.
+              </p>
+            </div>
+            <Switch
+              id="maintenance-mode"
+              checked={maintenanceSettings.enabled}
+              onCheckedChange={(checked) => handleMaintenanceSettingsChange('enabled', checked)}
+              disabled={isPending}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="maintenance-message">Maintenance Message</Label>
+            <Textarea
+              id="maintenance-message"
+              placeholder="e.g., The app is undergoing scheduled maintenance. We'll be back shortly."
+              value={maintenanceSettings.message}
+              onChange={(e) => handleMaintenanceSettingsChange('message', e.target.value)}
+              disabled={isPending}
+              rows={3}
+            />
+          </div>
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Heads Up!</AlertTitle>
+            <AlertDescription>
+                Enabling maintenance mode will immediately lock out all non-admin users. You will need to turn it off from here when you are done.
+            </AlertDescription>
+          </Alert>
+          <Button onClick={handleSaveMaintenanceSettings} disabled={isPending}>
+            <Save className="mr-2 h-4 w-4" />
+            Save Maintenance Settings
           </Button>
         </CardContent>
       </Card>
@@ -872,5 +945,3 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
-
-    

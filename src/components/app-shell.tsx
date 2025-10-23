@@ -44,6 +44,8 @@ import { Skeleton } from './ui/skeleton';
 import { useTheme } from "next-themes";
 import { BrandLogo } from './brand-logo';
 import { useToast } from '@/hooks/use-toast';
+import { getMaintenanceSettings } from '@/lib/db';
+import type { MaintenanceSettings } from '@/types';
 
 
 function ProfileDialog() {
@@ -329,6 +331,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { brandName, footerText, brandingLoading } = useBranding();
   const pathname = usePathname();
   const router = useRouter();
+  const [maintenanceSettings, setMaintenanceSettings] = useState<MaintenanceSettings | null>(null);
+
+  useEffect(() => {
+    async function checkMaintenance() {
+      const settings = await getMaintenanceSettings();
+      setMaintenanceSettings(settings);
+
+      if (settings.enabled && user?.role !== 'admin' && pathname !== '/maintenance') {
+        router.push('/maintenance');
+      } else if (!settings.enabled && pathname === '/maintenance') {
+        router.push('/dashboard');
+      }
+    }
+    if(!loading) {
+      checkMaintenance();
+    }
+  }, [pathname, router, user, loading]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !brandingLoading && brandName) {
@@ -342,7 +361,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, pathname, router]);
 
-  if (loading || brandingLoading) {
+  if (loading || brandingLoading || maintenanceSettings === null) {
     return (
        <div className="flex h-screen w-full items-center justify-center">
          <div className="flex flex-col items-center gap-4">
@@ -352,12 +371,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
        </div>
     );
   }
+  
+  if (maintenanceSettings.enabled && user?.role !== 'admin') {
+      if (pathname === '/maintenance') {
+        return <>{children}</>;
+      }
+      return null;
+  }
 
   if (!user && pathname !== '/login') {
     return null; // or a loading spinner, effectively pausing render until redirect
   }
 
-  if (pathname === '/login') {
+  if (pathname === '/login' || pathname === '/maintenance') {
     return <>{children}</>;
   }
 
