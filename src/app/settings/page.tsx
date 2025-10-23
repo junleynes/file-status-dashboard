@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { MonitoredPath, MonitoredPaths, CleanupSettings, SmtpSettings, ProcessingSettings, Database } from "@/types";
-import { UploadCloud, XCircle, Clock, Save, Network, Info, FileImage, Upload, Download } from "lucide-react";
+import { UploadCloud, XCircle, Clock, Save, Network, Info, FileImage, Upload, Download, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import {
@@ -872,3 +872,5 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
+
+    
