@@ -449,7 +449,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <SidebarMenuItem>
                         <SidebarMenuButton
                             onClick={() => setIsGameMenuOpen(!isGameMenuOpen)}
-                            isActive={isGameMenuOpen}
+                            isActive={pathname.startsWith('/games')}
                             tooltip="Games"
                         >
                             <Gamepad2 />
@@ -459,11 +459,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                          {isGameMenuOpen && (
                             <SidebarMenuSub>
                                 <SidebarMenuSubButton onClick={() => {}} isActive={false}>
-                                    <span className="w-4 h-4 mr-2" />
+                                    <Puzzle className="mr-2 h-4 w-4" />
                                     <span>Snake</span>
                                 </SidebarMenuSubButton>
                                 <SidebarMenuSubButton onClick={() => {}} isActive={false}>
-                                    <Puzzle />
+                                    <Puzzle className="mr-2 h-4 w-4" />
                                     <span>Dinosaur Game</span>
                                 </SidebarMenuSubButton>
                             </SidebarMenuSub>
