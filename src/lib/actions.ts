@@ -115,7 +115,7 @@ export async function testPath(path: string): Promise<{ success: boolean; error?
     }
 }
 
-export async function retryFile(fileName: string, adminUsername: string): Promise<{ success: boolean; error?: string }> {
+export async function retryFile(fileName: string, username: string): Promise<{ success: boolean; error?: string }> {
     const { import: importPath, failed: failedPath } = await db.getMonitoredPaths();
     const oldPath = path.join(failedPath.path, fileName);
     const newPath = path.join(importPath.path, fileName);
@@ -128,7 +128,7 @@ export async function retryFile(fileName: string, adminUsername: string): Promis
         if (fileStatus) {
             fileStatus.status = 'processing';
             fileStatus.lastUpdated = new Date().toISOString();
-            fileStatus.remarks = `Retrying file. [admin: ${adminUsername}]`;
+            fileStatus.remarks = `Retrying file. [user: ${username}]`;
             await db.upsertFileStatus(fileStatus);
         }
         
@@ -146,7 +146,7 @@ export async function retryFile(fileName: string, adminUsername: string): Promis
     }
 }
 
-export async function renameFile(oldName: string, newName: string, adminUsername: string): Promise<{ success: boolean; error?: string }> {
+export async function renameFile(oldName: string, newName: string, username: string): Promise<{ success: boolean; error?: string }> {
     const { import: importPath, failed: failedPath } = await db.getMonitoredPaths();
     const oldPath = path.join(failedPath.path, oldName);
     const newPath = path.join(importPath.path, newName);
@@ -167,7 +167,7 @@ export async function renameFile(oldName: string, newName: string, adminUsername
             status: 'processing',
             source: importPath.name,
             lastUpdated: new Date().toISOString(),
-            remarks: `Renamed from "${oldName}" and retrying. [admin: ${adminUsername}]`
+            remarks: `Renamed from "${oldName}" and retrying. [user: ${username}]`
         };
         await db.upsertFileStatus(newFileStatus);
         
@@ -545,3 +545,4 @@ export async function importAllSettings(settings: Partial<Database>): Promise<{ 
         return { success: false, error: 'An unexpected error occurred during the import process.' };
     }
 }
+

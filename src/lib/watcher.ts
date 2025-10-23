@@ -20,6 +20,13 @@ const cleanFileName = (fileName: string): string => {
     return cleanedBase + extension;
 };
 
+// Helper function to extract user from remarks
+const extractUserFromRemarks = (remarks: string | undefined): string | null => {
+  if (!remarks) return null;
+  const match = remarks.match(/\[user: (.*?)\]/);
+  return match ? `[user: ${match[1]}]` : null;
+}
+
 
 async function pollDirectories() {
   if (isPolling) return;
@@ -150,8 +157,9 @@ async function pollDirectories() {
       const inFailed = filesInFailedSet.has(fileName);
 
       if (file.status === 'processing' && !inImport && !inFailed) {
+        const userRemark = extractUserFromRemarks(file.remarks);
         file.status = 'published';
-        file.remarks = 'File processed successfully.';
+        file.remarks = `File processed successfully. ${userRemark || ''}`.trim();
         file.lastUpdated = new Date().toISOString();
         filesToUpsert.push(file);
       } else if (inFailed && file.status !== 'failed') {
