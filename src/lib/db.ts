@@ -193,6 +193,20 @@ export async function updateUser(user: User): Promise<void> {
     );
 }
 
+export async function bulkUpsertUsers(users: User[]): Promise<void> {
+    const db = getDb();
+    const stmt = db.prepare('INSERT OR REPLACE INTO users (id, username, name, email, role, avatar, twoFactorRequired, twoFactorSecret) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+    const transaction = db.transaction((usersToInsert: User[]) => {
+        for (const user of usersToInsert) {
+             stmt.run(
+                user.id, user.username, user.name, user.email || null, user.role, 
+                user.avatar || null, user.twoFactorRequired ? 1 : 0, user.twoFactorSecret || null
+            );
+        }
+    });
+    transaction(users);
+}
+
 export async function updateUserPassword(userId: string, newPassword: string): Promise<void> {
     const db = getDb();
     const stmt = db.prepare('UPDATE users SET password = ? WHERE id = ?');

@@ -9,8 +9,8 @@ import { useBranding } from "@/hooks/use-branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { MonitoredPath, MonitoredPaths, User, CleanupSettings, SmtpSettings, ProcessingSettings } from "@/types";
-import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff, FileImage, Mail, Send, Pencil } from "lucide-react";
+import type { MonitoredPath, MonitoredPaths, User, CleanupSettings, SmtpSettings, ProcessingSettings, Database } from "@/types";
+import { KeyRound, PlusCircle, Trash2, UploadCloud, UserPlus, Users, XCircle, Clock, FolderCog, Save, Server, Folder, Edit, Check, MessageSquareText, Network, Info, MessageSquareWarning, ShieldCheck, ShieldOff, FileImage, Mail, Send, Pencil, Download, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { Label } from "@/components/ui/label";
@@ -40,6 +40,8 @@ import {
     sendPasswordResetEmail,
     updateProcessingSettings,
     resetUserPasswordByAdmin,
+    exportAllSettings,
+    importAllSettings,
 } from "@/lib/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -119,6 +121,9 @@ export default function SettingsPage() {
   
   const [processingSettings, setProcessingSettings] = useState<ProcessingSettings>(defaultProcessingSettings);
 
+  const [isSettingsImportDialogOpen, setIsSettingsImportDialogOpen] = useState(false);
+  const [settingsImportFile, setSettingsImportFile] = useState<File | null>(null);
+  const [settingsImportError, setSettingsImportError] = useState<string | null>(null);
 
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -511,6 +516,69 @@ export default function SettingsPage() {
         toast({ title: "Processing Settings Saved", description: "Your file processing rules have been updated." });
     });
   }
+
+  const handleExportSettings = () => {
+    startTransition(async () => {
+      const { settings, error } = await exportAllSettings();
+      if (error) {
+        toast({ title: "Export Failed", description: error, variant: "destructive" });
+        return;
+      }
+      const blob = new Blob([settings!], { type: 'application/json;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      const date = new Date().toISOString().slice(0, 10);
+      link.setAttribute('download', `settings-backup-${date}.json`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast({ title: "Export Successful", description: "Your application settings have been downloaded." });
+    });
+  };
+  
+  const handleSettingsImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.name.toLowerCase().endsWith('.json')) {
+        setSettingsImportError('Invalid file type. Please upload a JSON file.');
+        setSettingsImportFile(null);
+      } else {
+        setSettingsImportFile(file);
+        setSettingsImportError(null);
+      }
+    }
+  };
+
+  const handleImportSettings = () => {
+    if (!settingsImportFile) return;
+
+    startTransition(async () => {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const content = e.target?.result as string;
+        try {
+            const parsedSettings = JSON.parse(content) as Partial<Database>;
+            const result = await importAllSettings(parsedSettings);
+            if (result.error) {
+                toast({ title: "Import Failed", description: result.error, variant: "destructive", duration: 10000 });
+            } else {
+                toast({ title: "Import Successful", description: "Settings have been imported. The page will now reload." });
+                // Use a short delay to allow the toast to be seen before reloading
+                setTimeout(() => window.location.reload(), 2000);
+            }
+        } catch (parseError) {
+             toast({ title: "Import Failed", description: "The uploaded file is not valid JSON.", variant: "destructive" });
+        } finally {
+            setIsSettingsImportDialogOpen(false);
+            setSettingsImportFile(null);
+            setSettingsImportError(null);
+        }
+      };
+      reader.readAsText(settingsImportFile);
+    });
+  };
 
 
   if (loading || user?.role !== 'admin' || brandingLoading) {
@@ -1031,6 +1099,22 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
       
+      <Card>
+        <CardHeader>
+          <CardTitle>Configuration Management</CardTitle>
+          <CardDescription>Export your current settings as a JSON file, or import settings from a backup file.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={handleExportSettings} disabled={isPending}>
+            <Download className="mr-2 h-4 w-4" />
+            Export Settings
+          </Button>
+          <Button variant="outline" onClick={() => setIsSettingsImportDialogOpen(true)} disabled={isPending}>
+            <Upload className="mr-2 h-4 w-4" />
+            Import Settings
+          </Button>
+        </CardContent>
+      </Card>
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
             <DialogContent>
                 <DialogHeader>
@@ -1145,10 +1229,38 @@ export default function SettingsPage() {
           </Tabs>
         </DialogContent>
       </Dialog>
+      
+      <Dialog open={isSettingsImportDialogOpen} onOpenChange={setIsSettingsImportDialogOpen}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Import Settings from JSON</DialogTitle>
+                  <DialogDescription>
+                      Upload a JSON backup file to restore application settings. This will overwrite existing settings. User passwords will not be affected.
+                  </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                  <div className="grid w-full max-w-sm items-center gap-1.5">
+                      <Label htmlFor="settings-file">Settings File (JSON)</Label>
+                      <Input id="settings-file" type="file" accept="application/json" onChange={handleSettingsImportFileChange} />
+                  </div>
+                  {settingsImportError && (
+                      <Alert variant="destructive">
+                          <AlertTriangle className="h-4 w-4" />
+                          <AlertTitle>Error</AlertTitle>
+                          <AlertDescription>{settingsImportError}</AlertDescription>
+                      </Alert>
+                  )}
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsSettingsImportDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={handleImportSettings} disabled={!settingsImportFile || isPending}>
+                      {isPending ? 'Importing...' : 'Import and Reload'}
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }
-
-    
 
     

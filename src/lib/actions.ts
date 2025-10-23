@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import * as db from './db';
-import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatus, MonitoredPath, SmtpSettings, ProcessingSettings, ChartData } from '../types';
+import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatus, MonitoredPath, SmtpSettings, ProcessingSettings, ChartData, Database } from '../types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { authenticator } from 'otplib';
@@ -441,6 +441,68 @@ export async function generateStatisticsReport(): Promise<{ csv?: string; error?
     } catch (error: any) {
         console.error("Error generating statistics report:", error);
         return { error: "An unexpected error occurred during report generation." };
+    }
+}
+
+export async function exportAllSettings(): Promise<{ settings?: string; error?: string }> {
+    try {
+        const fullDb = await db.readDb();
+        
+        // We don't want to export passwords or file statuses.
+        const usersWithoutPasswords = fullDb.users.map(({ password, ...user }) => user);
+        
+        const settingsToExport: Partial<Database> = {
+            users: usersWithoutPasswords,
+            branding: fullDb.branding,
+            monitoredPaths: fullDb.monitoredPaths,
+            monitoredExtensions: fullDb.monitoredExtensions,
+            cleanupSettings: fullDb.cleanupSettings,
+            processingSettings: fullDb.processingSettings,
+            failureRemark: fullDb.failureRemark,
+            smtpSettings: fullDb.smtpSettings,
+        };
+
+        const jsonString = JSON.stringify(settingsToExport, null, 2);
+        return { settings: jsonString };
+    } catch (error: any) {
+        console.error("Error exporting settings:", error);
+        return { error: "An unexpected error occurred during export." };
+    }
+}
+
+export async function importAllSettings(settings: Partial<Database>): Promise<{ success: boolean; error?: string }> {
+    try {
+        // Validate the structure of the imported settings
+        if (!settings || typeof settings !== 'object') {
+            return { success: false, error: 'Invalid settings file format.' };
+        }
+
+        const dbWrites: Promise<any>[] = [];
+
+        // Update each setting if it exists in the imported file
+        if (settings.branding) dbWrites.push(db.updateBranding(settings.branding));
+        if (settings.monitoredPaths) dbWrites.push(db.updateMonitoredPaths(settings.monitoredPaths));
+        if (settings.monitoredExtensions) dbWrites.push(db.updateMonitoredExtensions(settings.monitoredExtensions));
+        if (settings.cleanupSettings) dbWrites.push(db.updateCleanupSettings(settings.cleanupSettings));
+        if (settings.processingSettings) dbWrites.push(db.updateProcessingSettings(settings.processingSettings));
+        if (settings.failureRemark) dbWrites.push(db.updateFailureRemark(settings.failureRemark));
+        if (settings.smtpSettings) dbWrites.push(db.updateSmtpSettings(settings.smtpSettings));
+        
+        if (settings.users && Array.isArray(settings.users)) {
+            // This is a simple upsert. It will add new users and overwrite existing ones, but will not delete users that are not in the import file.
+            // Passwords are not included in the export, so they won't be overwritten here.
+            dbWrites.push(db.bulkUpsertUsers(settings.users));
+        }
+        
+        await Promise.all(dbWrites);
+        
+        revalidatePath('/settings');
+        revalidatePath('/', 'layout');
+
+        return { success: true };
+    } catch (error: any) {
+        console.error("Error importing settings:", error);
+        return { success: false, error: 'An unexpected error occurred during the import process.' };
     }
 }
 
