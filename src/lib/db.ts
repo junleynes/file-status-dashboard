@@ -15,16 +15,21 @@ let dbInstance: Database.Database | null = null;
 
 const getDb = (): Database.Database => {
     if (!dbInstance) {
+        console.log('[DB] Initializing new SQLite connection...');
         dbInstance = new Database(dbPath);
+        
+        // **CRITICAL FIX**: Apply concurrency settings to the singleton instance
+        console.log('[DB] Applying WAL mode and busy timeout...');
         dbInstance.pragma('journal_mode = WAL'); // Recommended for concurrent access
         dbInstance.pragma('busy_timeout = 5000'); // Wait 5 seconds for locks to clear
+
         initializeDatabase(dbInstance);
     }
     return dbInstance;
 };
 
 
-function migrateDataFromJson() {
+function migrateDataFromJson(db: Database.Database) {
     console.log('[DB] Checking if data migration is needed...');
     if (!fs.existsSync(jsonDbPath)) {
         console.log('[DB] JSON database not found, skipping migration.');
@@ -36,8 +41,7 @@ function migrateDataFromJson() {
     }
 
     console.log('[DB] Found database.json, starting one-time migration to SQLite...');
-    const db = getDb();
-
+    
     try {
         const jsonString = fs.readFileSync(jsonDbPath, 'utf-8');
         const jsonData: JsonDatabase = JSON.parse(jsonString);
@@ -131,7 +135,7 @@ function initializeDatabase(db: Database.Database) {
     `);
     
     // Check if migration should be run after ensuring tables exist
-    migrateDataFromJson();
+    migrateDataFromJson(db);
 }
 
 // --- Generic Setting Helpers ---
@@ -391,5 +395,3 @@ export async function readDb(): Promise<JsonDatabase> {
         smtpSettings
     };
 }
-
-    
