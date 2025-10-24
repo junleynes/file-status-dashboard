@@ -13,21 +13,40 @@ const jsonDbMigratedPath = path.resolve(process.cwd(), 'src/lib/database.json.mi
 // Establish a singleton database connection
 let dbInstance: Database.Database | null = null;
 
-const getDb = (): Database.Database => {
-    if (!dbInstance) {
-        console.log('[DB] Initializing new SQLite connection...');
-        dbInstance = new Database(dbPath);
-        
-        // **CRITICAL FIX**: Apply concurrency settings to the singleton instance
-        console.log('[DB] Applying WAL mode and busy timeout...');
-        dbInstance.pragma('journal_mode = WAL'); // Recommended for concurrent access
-        dbInstance.pragma('busy_timeout = 5000'); // Wait 5 seconds for locks to clear
+function initializeDatabase(db: Database.Database) {
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            username TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            email TEXT UNIQUE,
+            role TEXT NOT NULL,
+            password TEXT,
+            avatar TEXT,
+            twoFactorRequired INTEGER DEFAULT 0,
+            twoFactorSecret TEXT
+        );
 
-        initializeDatabase(dbInstance);
-    }
-    return dbInstance;
-};
+        CREATE TABLE IF NOT EXISTS file_statuses (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            status TEXT NOT NULL,
+            source TEXT NOT NULL,
+            lastUpdated TEXT NOT NULL,
+            remarks TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_file_statuses_name ON file_statuses(name);
+        CREATE INDEX IF NOT EXISTS idx_file_statuses_status ON file_statuses(status);
 
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        );
+    `);
+    
+    // Check if migration should be run after ensuring tables exist
+    migrateDataFromJson(db);
+}
 
 function migrateDataFromJson(db: Database.Database) {
     console.log('[DB] Checking if data migration is needed...');
@@ -102,41 +121,21 @@ function migrateDataFromJson(db: Database.Database) {
     }
 }
 
+const getDb = (): Database.Database => {
+    if (!dbInstance) {
+        console.log('[DB] Initializing new SQLite connection...');
+        dbInstance = new Database(dbPath);
+        
+        // **CRITICAL FIX**: Apply concurrency settings to the singleton instance
+        console.log('[DB] Applying WAL mode and busy timeout...');
+        dbInstance.pragma('journal_mode = WAL'); // Recommended for concurrent access
+        dbInstance.pragma('busy_timeout = 5000'); // Wait 5 seconds for locks to clear
 
-function initializeDatabase(db: Database.Database) {
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
-            username TEXT NOT NULL UNIQUE,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE,
-            role TEXT NOT NULL,
-            password TEXT,
-            avatar TEXT,
-            twoFactorRequired INTEGER DEFAULT 0,
-            twoFactorSecret TEXT
-        );
+        initializeDatabase(dbInstance);
+    }
+    return dbInstance;
+};
 
-        CREATE TABLE IF NOT EXISTS file_statuses (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE,
-            status TEXT NOT NULL,
-            source TEXT NOT NULL,
-            lastUpdated TEXT NOT NULL,
-            remarks TEXT
-        );
-        CREATE INDEX IF NOT EXISTS idx_file_statuses_name ON file_statuses(name);
-        CREATE INDEX IF NOT EXISTS idx_file_statuses_status ON file_statuses(status);
-
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        );
-    `);
-    
-    // Check if migration should be run after ensuring tables exist
-    migrateDataFromJson(db);
-}
 
 // --- Generic Setting Helpers ---
 async function getSetting<T>(key: string, defaultValue: T): Promise<T> {
