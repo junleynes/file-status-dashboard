@@ -17,6 +17,7 @@ const getDb = (): Database.Database => {
     if (!dbInstance) {
         dbInstance = new Database(dbPath);
         dbInstance.pragma('journal_mode = WAL'); // Recommended for concurrent access
+        dbInstance.pragma('busy_timeout = 5000'); // Wait 5 seconds for locks to clear
         initializeDatabase(dbInstance);
     }
     return dbInstance;
