@@ -123,11 +123,11 @@ function migrateDataFromJson(db: Database.Database) {
 
 const getDb = (): Database.Database => {
     if (!dbInstance) {
-        console.log('[DB] Initializing new SQLite connection...');
+        console.log('[DB] Initializing new SQLite singleton connection...');
         dbInstance = new Database(dbPath);
         
         // **CRITICAL FIX**: Apply concurrency settings to the singleton instance
-        console.log('[DB] Applying WAL mode and busy timeout...');
+        console.log('[DB] Applying WAL mode and busy timeout to singleton instance...');
         dbInstance.pragma('journal_mode = WAL'); // Recommended for concurrent access
         dbInstance.pragma('busy_timeout = 5000'); // Wait 5 seconds for locks to clear
 
