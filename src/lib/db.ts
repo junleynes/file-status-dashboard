@@ -30,6 +30,10 @@ function migrateDataFromJson() {
         console.log('[DB] JSON database not found, skipping migration.');
         return;
     }
+     if (fs.existsSync(jsonDbMigratedPath)) {
+        console.log('[DB] JSON database has already been migrated, skipping.');
+        return;
+    }
 
     console.log('[DB] Found database.json, starting one-time migration to SQLite...');
     const db = getDb();
@@ -291,7 +295,7 @@ export async function deleteFileStatusesByAge(maxAgeMs: number): Promise<number>
 // --- SETTINGS ---
 export async function getBranding(): Promise<BrandingSettings> {
     return getSetting<BrandingSettings>('branding', {
-        brandName: 'Publish Lookout', logo: null, favicon: null, footerText: '© 2024'
+        brandName: 'FileStatus Tracker', logo: null, favicon: null, footerText: `© ${new Date().getFullYear()} FileStatus Tracker`
     });
 }
 export async function updateBranding(settings: BrandingSettings): Promise<void> {
@@ -336,13 +340,7 @@ export async function updateProcessingSettings(settings: ProcessingSettings): Pr
 }
 
 export async function getFailureRemark(): Promise<string> {
-    const remark = await getSetting<string>('failureRemark', 'Processing failed.');
-    // It's stored as a JSON string, so we need to parse it.
-    try {
-       return JSON.parse(remark);
-    } catch {
-       return remark; // Return as-is if it's not a valid JSON string
-    }
+    return getSetting<string>('failureRemark', 'Processing failed.');
 }
 export async function updateFailureRemark(remark: string): Promise<void> {
     return updateSetting('failureRemark', remark);
@@ -393,3 +391,5 @@ export async function readDb(): Promise<JsonDatabase> {
         smtpSettings
     };
 }
+
+    
