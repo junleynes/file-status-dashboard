@@ -13,6 +13,23 @@ import Papa from 'papaparse';
 import { format, parseISO, startOfWeek, startOfMonth } from 'date-fns';
 
 
+export async function ensureAdminUserExists() {
+  const adminUser = await db.getUserByUsername('admin');
+  if (!adminUser) {
+    console.log("Admin user not found, creating one.");
+    const newAdmin: User = {
+      id: 'user-admin-initial',
+      username: 'admin',
+      name: 'Default Admin',
+      email: 'admin@example.com',
+      role: 'admin',
+      password: 'P@ssw00rd',
+    };
+    await db.addUser(newAdmin);
+    console.log("Default admin user created.");
+  }
+}
+
 export async function validateUserCredentials(username: string, password: string):Promise<{ success: boolean; user?: User }> {
   const user = await db.getUserByUsername(username);
   if (user && user.password === password) {
@@ -545,4 +562,3 @@ export async function importAllSettings(settings: Partial<Database>): Promise<{ 
         return { success: false, error: 'An unexpected error occurred during the import process.' };
     }
 }
-

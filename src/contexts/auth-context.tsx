@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const checkUser = async () => {
       setLoading(true);
       try {
+        await actions.ensureAdminUserExists();
         const storedCurrentUser = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
         if (storedCurrentUser) {
           setUser(JSON.parse(storedCurrentUser));
@@ -140,5 +141,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
-
-    
