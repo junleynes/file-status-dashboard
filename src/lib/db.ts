@@ -55,14 +55,8 @@ function migrateDataFromJson(db: Database.Database) {
         return;
     }
      if (fs.existsSync(jsonDbMigratedPath)) {
-        // THIS IS THE FIX: By renaming the migrated file, we force a re-migration on next startup.
-        try {
-            console.log('[DB] Found migrated file, renaming to force DB reset.');
-            fs.renameSync(jsonDbMigratedPath, `${jsonDbMigratedPath}.old`);
-        } catch (e) {
-            // If it fails, that's okay, we'll proceed anyway.
-            console.error('[DB] Could not rename migrated file, but will attempt migration anyway.', e);
-        }
+        // Migration has already happened
+        return;
     }
 
     console.log('[DB] Found database.json, starting one-time migration to SQLite...');
@@ -136,16 +130,7 @@ function migrateDataFromJson(db: Database.Database) {
 const getDb = (): Database.Database => {
     if (!dbInstance) {
         console.log('[DB] Initializing new SQLite singleton connection...');
-        try {
-            // Delete the old corrupt database file on startup
-            if (fs.existsSync(dbPath)) {
-                console.log('[DB] Deleting existing SQLite file to ensure a clean start.');
-                fs.unlinkSync(dbPath);
-            }
-        } catch (e) {
-            console.error('[DB] Could not delete old database file, proceeding anyway.', e);
-        }
-
+        
         dbInstance = new Database(dbPath);
         
         console.log('[DB] Applying WAL mode and busy timeout to singleton instance...');
