@@ -13,41 +13,6 @@ const jsonDbMigratedPath = path.resolve(process.cwd(), 'src/lib/database.json.mi
 // Establish a singleton database connection
 let dbInstance: Database.Database | null = null;
 
-function initializeDatabase(db: Database.Database) {
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
-            username TEXT NOT NULL UNIQUE,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE,
-            role TEXT NOT NULL,
-            password TEXT,
-            avatar TEXT,
-            twoFactorRequired INTEGER DEFAULT 0,
-            twoFactorSecret TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS file_statuses (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE,
-            status TEXT NOT NULL,
-            source TEXT NOT NULL,
-            lastUpdated TEXT NOT NULL,
-            remarks TEXT
-        );
-        CREATE INDEX IF NOT EXISTS idx_file_statuses_name ON file_statuses(name);
-        CREATE INDEX IF NOT EXISTS idx_file_statuses_status ON file_statuses(status);
-
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        );
-    `);
-    
-    // Check if migration should be run after ensuring tables exist
-    migrateDataFromJson(db);
-}
-
 function migrateDataFromJson(db: Database.Database) {
     console.log('[DB] Checking if data migration is needed...');
     if (!fs.existsSync(jsonDbPath)) {
@@ -137,7 +102,38 @@ const getDb = (): Database.Database => {
         dbInstance.pragma('journal_mode = WAL');
         dbInstance.pragma('busy_timeout = 5000');
 
-        initializeDatabase(dbInstance);
+        dbInstance.exec(`
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                username TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE,
+                role TEXT NOT NULL,
+                password TEXT,
+                avatar TEXT,
+                twoFactorRequired INTEGER DEFAULT 0,
+                twoFactorSecret TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS file_statuses (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                status TEXT NOT NULL,
+                source TEXT NOT NULL,
+                lastUpdated TEXT NOT NULL,
+                remarks TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_file_statuses_name ON file_statuses(name);
+            CREATE INDEX IF NOT EXISTS idx_file_statuses_status ON file_statuses(status);
+
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            );
+        `);
+    
+        // Check if migration should be run after ensuring tables exist
+        migrateDataFromJson(dbInstance);
     }
     return dbInstance;
 };
