@@ -66,6 +66,11 @@ export type SmtpSettings = {
     }
 }
 
+export type MaintenanceSettings = {
+    enabled: boolean;
+    message: string;
+}
+
 export type ChartData = {
     date: string;
     count: number;
@@ -81,4 +86,5 @@ export type Database = {
     processingSettings: ProcessingSettings;
     failureRemark: string;
     smtpSettings: SmtpSettings;
+    maintenanceSettings: MaintenanceSettings;
 }

@@ -44,6 +44,8 @@ import { Skeleton } from './ui/skeleton';
 import { useTheme } from "next-themes";
 import { BrandLogo } from './brand-logo';
 import { useToast } from '@/hooks/use-toast';
+import { readDb } from '@/lib/db';
+import type { MaintenanceSettings } from '@/types';
 
 
 function ProfileDialog() {
@@ -327,6 +329,7 @@ function Header() {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const { brandName, footerText, brandingLoading } = useBranding();
+  const [maintenanceSettings, setMaintenanceSettings] = useState<MaintenanceSettings | null>(null);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -336,13 +339,42 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [brandName, brandingLoading]);
 
-  useEffect(() => {
-    if (!loading && !user && pathname !== '/login') {
-      router.push('/login');
+   useEffect(() => {
+    async function fetchMaintenanceStatus() {
+        const settings = await readDb();
+        setMaintenanceSettings(settings.maintenanceSettings);
     }
-  }, [user, loading, pathname, router]);
+    fetchMaintenanceStatus();
+    // Also poll for changes in case it's disabled remotely
+    const interval = setInterval(fetchMaintenanceStatus, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
-  if (loading || brandingLoading) {
+  useEffect(() => {
+    if (loading || !maintenanceSettings) return;
+
+    const isMaintenancePage = pathname === '/maintenance';
+    const isLoginPage = pathname === '/login';
+
+    if (maintenanceSettings.enabled && user?.role !== 'admin' && !isMaintenancePage) {
+        router.replace('/maintenance');
+        return;
+    }
+    
+    if (!maintenanceSettings.enabled && isMaintenancePage) {
+        router.replace('/dashboard');
+        return;
+    }
+
+    if (!user && !isLoginPage && !isMaintenancePage) {
+        router.replace('/login');
+    }
+
+  }, [user, loading, pathname, router, maintenanceSettings]);
+
+  const appIsLoading = loading || brandingLoading || maintenanceSettings === null;
+
+  if (appIsLoading) {
     return (
        <div className="flex h-screen w-full items-center justify-center">
          <div className="flex flex-col items-center gap-4">
@@ -353,11 +385,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (maintenanceSettings.enabled && user?.role !== 'admin') {
+      return pathname === '/maintenance' ? <>{children}</> : null;
+  }
+  
   if (!user && pathname !== '/login') {
-    return null; // or a loading spinner, effectively pausing render until redirect
+    return null;
   }
 
-  if (pathname === '/login') {
+  if (pathname === '/login' || pathname === '/maintenance') {
     return <>{children}</>;
   }
 

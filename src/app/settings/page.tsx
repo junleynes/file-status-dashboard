@@ -9,8 +9,8 @@ import { useBranding } from "@/hooks/use-branding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import type { MonitoredPath, MonitoredPaths, CleanupSettings, SmtpSettings, ProcessingSettings, Database } from "@/types";
-import { UploadCloud, XCircle, Clock, Save, Network, Info, FileImage, Upload, Download, Send } from "lucide-react";
+import type { MonitoredPath, MonitoredPaths, CleanupSettings, SmtpSettings, ProcessingSettings, Database, MaintenanceSettings } from "@/types";
+import { UploadCloud, XCircle, Clock, Save, Network, Info, FileImage, Upload, Download, Send, Construction } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Label } from "@/components/ui/label";
 import {
@@ -36,11 +36,13 @@ import {
     updateProcessingSettings,
     exportAllSettings,
     importAllSettings,
+    updateMaintenanceSettings,
 } from "@/lib/actions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { BrandLogo } from "@/components/brand-logo";
 import { AnimatePresence, motion } from "framer-motion";
 import { PlusCircle, Trash2, Edit, Check } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 
 const defaultImportPath: MonitoredPath = {
@@ -70,6 +72,11 @@ const defaultProcessingSettings: ProcessingSettings = {
     autoExpandPrefixes: false,
 };
 
+const defaultMaintenanceSettings: MaintenanceSettings = {
+    enabled: false,
+    message: "Maintenance in Progress\n\n{Brand Name} is currently down for maintenance. We’re performing necessary updates to improve performance and reliability. Please check back later."
+}
+
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
@@ -96,6 +103,8 @@ export default function SettingsPage() {
   const [smtpSettings, setSmtpSettings] = useState<SmtpSettings>(defaultSmtpSettings);
   
   const [processingSettings, setProcessingSettings] = useState<ProcessingSettings>(defaultProcessingSettings);
+
+  const [maintenanceSettings, setMaintenanceSettings] = useState<MaintenanceSettings>(defaultMaintenanceSettings);
 
   const [isSettingsImportDialogOpen, setIsSettingsImportDialogOpen] = useState(false);
   const [settingsImportFile, setSettingsImportFile] = useState<File | null>(null);
@@ -132,6 +141,7 @@ export default function SettingsPage() {
         setInitialFailureRemark(fullDb.failureRemark || '');
         setSmtpSettings(fullDb.smtpSettings || defaultSmtpSettings);
         setProcessingSettings(fullDb.processingSettings || defaultProcessingSettings);
+        setMaintenanceSettings(fullDb.maintenanceSettings || defaultMaintenanceSettings);
     }
     fetchData();
   }, [])
@@ -345,6 +355,23 @@ export default function SettingsPage() {
     });
   }
 
+  const handleMaintenanceSettingsChange = <K extends keyof MaintenanceSettings>(
+    field: K,
+    value: MaintenanceSettings[K]
+  ) => {
+      setMaintenanceSettings(prev => ({
+          ...prev,
+          [field]: value
+      }));
+  };
+
+  const handleSaveMaintenanceSettings = () => {
+    startTransition(async () => {
+      await updateMaintenanceSettings(maintenanceSettings);
+      toast({ title: "Maintenance Settings Saved", description: "Maintenance mode settings have been updated." });
+    });
+  }
+
   const handleExportSettings = () => {
     startTransition(async () => {
       const { settings, error } = await exportAllSettings();
@@ -484,6 +511,48 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Maintenance Mode</CardTitle>
+          <CardDescription>Enable maintenance mode to show a notification page to all non-admin users.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+            <div className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                    <Label htmlFor="maintenance-mode-enabled" className="text-base">Enable Maintenance Mode</Label>
+                    <p className="text-sm text-muted-foreground">
+                        While enabled, all non-admin users will see the maintenance page.
+                    </p>
+                </div>
+                <Switch
+                    id="maintenance-mode-enabled"
+                    checked={maintenanceSettings.enabled}
+                    onCheckedChange={(checked) => handleMaintenanceSettingsChange('enabled', checked)}
+                    disabled={isPending}
+                />
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="maintenance-message">Maintenance Message</Label>
+                <Textarea
+                    id="maintenance-message"
+                    placeholder="Enter the message to display on the maintenance page."
+                    value={maintenanceSettings.message}
+                    onChange={(e) => handleMaintenanceSettingsChange('message', e.target.value)}
+                    className="min-h-32"
+                    disabled={isPending}
+                />
+                <p className="text-xs text-muted-foreground">
+                    Use `&#123;Brand Name&#125;` to dynamically insert your brand name.
+                </p>
+            </div>
+            <Button onClick={handleSaveMaintenanceSettings} disabled={isPending}>
+                <Construction className="mr-2 h-4 w-4" />
+                Save Maintenance Settings
+            </Button>
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardHeader>
@@ -872,5 +941,3 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
-
-    

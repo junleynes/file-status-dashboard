@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import * as db from './db';
-import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatus, MonitoredPath, SmtpSettings, ProcessingSettings, ChartData, Database } from '../types';
+import type { BrandingSettings, CleanupSettings, MonitoredPaths, User, FileStatus, MonitoredPath, SmtpSettings, ProcessingSettings, ChartData, Database, MaintenanceSettings } from '../types';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { authenticator } from 'otplib';
@@ -361,6 +361,12 @@ export async function updateProcessingSettings(settings: ProcessingSettings) {
     revalidatePath('/settings');
 }
 
+export async function updateMaintenanceSettings(settings: MaintenanceSettings) {
+    await db.updateMaintenanceSettings(settings);
+    revalidatePath('/settings');
+    revalidatePath('/maintenance');
+}
+
 export async function clearAllFileStatuses() {
     await db.deleteAllFileStatuses();
     revalidatePath('/dashboard');
@@ -519,6 +525,7 @@ export async function exportAllSettings(): Promise<{ settings?: string; error?: 
             processingSettings: fullDb.processingSettings,
             failureRemark: fullDb.failureRemark,
             smtpSettings: fullDb.smtpSettings,
+            maintenanceSettings: fullDb.maintenanceSettings,
         };
 
         const jsonString = JSON.stringify(settingsToExport, null, 2);
@@ -550,6 +557,8 @@ export async function importAllSettings(settings: Partial<Database>): Promise<{ 
         if (settings.processingSettings) dbWrites.push(db.updateProcessingSettings(settings.processingSettings));
         if (settings.failureRemark) dbWrites.push(db.updateFailureRemark(settings.failureRemark));
         if (settings.smtpSettings) dbWrites.push(db.updateSmtpSettings(settings.smtpSettings));
+        if (settings.maintenanceSettings) dbWrites.push(db.updateMaintenanceSettings(settings.maintenanceSettings));
+
         
         await Promise.all(dbWrites);
         

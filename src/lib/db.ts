@@ -4,7 +4,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import Database from 'better-sqlite3';
-import type { Database as JsonDatabase, BrandingSettings, CleanupSettings, FileStatus, MonitoredPaths, ProcessingSettings, SmtpSettings, User } from '../types';
+import type { Database as JsonDatabase, BrandingSettings, CleanupSettings, FileStatus, MonitoredPaths, ProcessingSettings, SmtpSettings, User, MaintenanceSettings } from '../types';
 
 const dbPath = path.resolve(process.cwd(), 'src/lib/database.sqlite');
 const jsonDbPath = path.resolve(process.cwd(), 'src/lib/database.json');
@@ -103,6 +103,7 @@ function migrateDataFromJson(db: Database.Database) {
             insertSetting.run('processingSettings', JSON.stringify(jsonData.processingSettings));
             insertSetting.run('failureRemark', JSON.stringify(jsonData.failureRemark));
             insertSetting.run('smtpSettings', JSON.stringify(jsonData.smtpSettings));
+            insertSetting.run('maintenanceSettings', JSON.stringify(jsonData.maintenanceSettings));
             console.log('[DB] Migrated application settings.');
 
             // File Statuses
@@ -378,6 +379,17 @@ export async function updateSmtpSettings(settings: SmtpSettings): Promise<void> 
     return updateSetting('smtpSettings', settings);
 }
 
+export async function getMaintenanceSettings(): Promise<MaintenanceSettings> {
+    const defaultMessage = `Maintenance in Progress\n\n{Brand Name} is currently down for maintenance. We’re performing necessary updates to improve performance and reliability. Please check back later.`;
+    return getSetting<MaintenanceSettings>('maintenanceSettings', {
+        enabled: false,
+        message: defaultMessage,
+    });
+}
+export async function updateMaintenanceSettings(settings: MaintenanceSettings): Promise<void> {
+    return updateSetting('maintenanceSettings', settings);
+}
+
 // --- Compatibility layer for old readDb/writeDb calls ---
 // This allows us to refactor actions.ts incrementally.
 export async function readDb(): Promise<JsonDatabase> {
@@ -391,6 +403,7 @@ export async function readDb(): Promise<JsonDatabase> {
         processingSettings,
         failureRemark,
         smtpSettings,
+        maintenanceSettings,
     ] = await Promise.all([
         getUsers(),
         getBranding(),
@@ -400,7 +413,8 @@ export async function readDb(): Promise<JsonDatabase> {
         getCleanupSettings(),
         getProcessingSettings(),
         getFailureRemark(),
-        getSmtpSettings()
+        getSmtpSettings(),
+        getMaintenanceSettings(),
     ]);
     return {
         users,
@@ -411,8 +425,7 @@ export async function readDb(): Promise<JsonDatabase> {
         cleanupSettings,
         processingSettings,
         failureRemark,
-        smtpSettings
+        smtpSettings,
+        maintenanceSettings,
     };
 }
-
-    
