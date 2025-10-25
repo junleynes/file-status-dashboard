@@ -55,8 +55,14 @@ function migrateDataFromJson(db: Database.Database) {
         return;
     }
      if (fs.existsSync(jsonDbMigratedPath)) {
-        console.log('[DB] JSON database has already been migrated, skipping.');
-        return;
+        // THIS IS THE FIX: By renaming the migrated file, we force a re-migration on next startup.
+        try {
+            console.log('[DB] Found migrated file, renaming to force DB reset.');
+            fs.renameSync(jsonDbMigratedPath, `${jsonDbMigratedPath}.old`);
+        } catch (e) {
+            // If it fails, that's okay, we'll proceed anyway.
+            console.error('[DB] Could not rename migrated file, but will attempt migration anyway.', e);
+        }
     }
 
     console.log('[DB] Found database.json, starting one-time migration to SQLite...');
@@ -66,6 +72,11 @@ function migrateDataFromJson(db: Database.Database) {
         const jsonData: JsonDatabase = JSON.parse(jsonString);
 
         db.transaction(() => {
+            // Clean tables before migrating
+            db.exec('DELETE FROM users');
+            db.exec('DELETE FROM file_statuses');
+            db.exec('DELETE FROM settings');
+
             // Users
             const insertUser = db.prepare('INSERT OR REPLACE INTO users (id, username, name, email, role, password, avatar, twoFactorRequired, twoFactorSecret) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
             jsonData.users.forEach(user => {
@@ -124,12 +135,21 @@ function migrateDataFromJson(db: Database.Database) {
 const getDb = (): Database.Database => {
     if (!dbInstance) {
         console.log('[DB] Initializing new SQLite singleton connection...');
+        try {
+            // Delete the old corrupt database file on startup
+            if (fs.existsSync(dbPath)) {
+                console.log('[DB] Deleting existing SQLite file to ensure a clean start.');
+                fs.unlinkSync(dbPath);
+            }
+        } catch (e) {
+            console.error('[DB] Could not delete old database file, proceeding anyway.', e);
+        }
+
         dbInstance = new Database(dbPath);
         
-        // **CRITICAL FIX**: Apply concurrency settings to the singleton instance
         console.log('[DB] Applying WAL mode and busy timeout to singleton instance...');
-        dbInstance.pragma('journal_mode = WAL'); // Recommended for concurrent access
-        dbInstance.pragma('busy_timeout = 5000'); // Wait 5 seconds for locks to clear
+        dbInstance.pragma('journal_mode = WAL');
+        dbInstance.pragma('busy_timeout = 5000');
 
         initializeDatabase(dbInstance);
     }
@@ -394,3 +414,5 @@ export async function readDb(): Promise<JsonDatabase> {
         smtpSettings
     };
 }
+
+    
