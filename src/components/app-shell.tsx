@@ -356,7 +356,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const isMaintenancePage = pathname === '/maintenance';
     const isLoginPage = pathname === '/login';
 
-    if (maintenanceSettings.enabled && user?.role !== 'admin' && !isMaintenancePage) {
+    if (maintenanceSettings.enabled && user?.role !== 'admin' && !isMaintenancePage && !isLoginPage) {
         router.replace('/maintenance');
         return;
     }
@@ -386,7 +386,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   if (maintenanceSettings.enabled && user?.role !== 'admin') {
-      return pathname === '/maintenance' ? <>{children}</> : null;
+      if (pathname === '/maintenance' || pathname === '/login') {
+          return <>{children}</>;
+      }
+      return null;
   }
   
   if (!user && pathname !== '/login') {
