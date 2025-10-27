@@ -362,10 +362,12 @@ export async function updateSmtpSettings(settings: SmtpSettings): Promise<void> 
 
 export async function getMaintenanceSettings(): Promise<MaintenanceSettings> {
     const defaultMessage = `Maintenance in Progress\n\n{Brand Name} is currently down for maintenance. We’re performing necessary updates to improve performance and reliability. Please check back later.`;
-    return getSetting<MaintenanceSettings>('maintenanceSettings', {
+    // TEMPORARY OVERRIDE to disable maintenance mode
+    const settings = await getSetting<MaintenanceSettings>('maintenanceSettings', {
         enabled: false,
         message: defaultMessage,
     });
+    return { ...settings, enabled: false };
 }
 export async function updateMaintenanceSettings(settings: MaintenanceSettings): Promise<void> {
     return updateSetting('maintenanceSettings', settings);
@@ -410,5 +412,3 @@ export async function readDb(): Promise<JsonDatabase> {
         maintenanceSettings,
     };
 }
-
-    
