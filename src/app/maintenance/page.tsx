@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { readDb } from '@/lib/db';
 import { BrandLogo } from '@/components/brand-logo';
 import { useBranding } from '@/hooks/use-branding';
@@ -77,6 +78,12 @@ export default function MaintenancePage() {
                     ) : (
                          message.split('\n').map((line, index) => <p key={index}>{line}</p>)
                     )}
+                </div>
+
+                <div className="mt-12">
+                    <Link href="/login" className="text-sm text-muted-foreground underline-offset-4 hover:underline hover:text-primary">
+                        Administrator Login
+                    </Link>
                 </div>
             </motion.div>
         </div>
