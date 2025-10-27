@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import * as fs from 'fs';
@@ -300,7 +301,10 @@ export async function deleteFileStatusesByAge(maxAgeMs: number): Promise<number>
 // --- SETTINGS ---
 export async function getBranding(): Promise<BrandingSettings> {
     return getSetting<BrandingSettings>('branding', {
-        brandName: 'FileStatus Tracker', logo: null, favicon: null, footerText: `© ${new Date().getFullYear()} FileStatus Tracker`
+        brandName: "FileStatus Tracker",
+        logo: null,
+        favicon: null,
+        footerText: "© 2024 FileStatus Tracker"
     });
 }
 export async function updateBranding(settings: BrandingSettings): Promise<void> {
@@ -309,8 +313,16 @@ export async function updateBranding(settings: BrandingSettings): Promise<void> 
 
 export async function getMonitoredPaths(): Promise<MonitoredPaths> {
     return getSetting<MonitoredPaths>('monitoredPaths', {
-        import: { id: 'import-path', name: 'Import', path: '' },
-        failed: { id: 'failed-path', name: 'Failed', path: '' }
+        import: {
+          id: "import-path",
+          name: "Import",
+          path: "/Users/user/Documents/monitored/import"
+        },
+        failed: {
+          id: "failed-path",
+          name: "Failed",
+          path: "/Users/user/Documents/monitored/failed"
+        }
     });
 }
 export async function updateMonitoredPaths(settings: MonitoredPaths): Promise<void> {
@@ -318,7 +330,10 @@ export async function updateMonitoredPaths(settings: MonitoredPaths): Promise<vo
 }
 
 export async function getMonitoredExtensions(): Promise<string[]> {
-    return getSetting<string[]>('monitoredExtensions', []);
+    return getSetting<string[]>('monitoredExtensions', [
+        "mov",
+        "mxf"
+    ]);
 }
 export async function updateMonitoredExtensions(extensions: string[]): Promise<void> {
     return updateSetting('monitoredExtensions', extensions);
@@ -326,9 +341,21 @@ export async function updateMonitoredExtensions(extensions: string[]): Promise<v
 
 export async function getCleanupSettings(): Promise<CleanupSettings> {
     return getSetting<CleanupSettings>('cleanupSettings', {
-        status: { enabled: true, value: '7', unit: 'days' },
-        files: { enabled: false, value: '30', unit: 'days' },
-        timeout: { enabled: true, value: '24', unit: 'hours' }
+        status: {
+          enabled: true,
+          value: "30",
+          unit: "days"
+        },
+        files: {
+          enabled: false,
+          value: "30",
+          unit: "days"
+        },
+        timeout: {
+          enabled: true,
+          value: "24",
+          unit: "hours"
+        }
     });
 }
 export async function updateCleanupSettings(settings: CleanupSettings): Promise<void> {
@@ -337,7 +364,8 @@ export async function updateCleanupSettings(settings: CleanupSettings): Promise<
 
 export async function getProcessingSettings(): Promise<ProcessingSettings> {
     return getSetting<ProcessingSettings>('processingSettings', {
-        autoTrimInvalidChars: false, autoExpandPrefixes: false
+        autoTrimInvalidChars: true,
+        autoExpandPrefixes: true
     });
 }
 export async function updateProcessingSettings(settings: ProcessingSettings): Promise<void> {
@@ -345,7 +373,7 @@ export async function updateProcessingSettings(settings: ProcessingSettings): Pr
 }
 
 export async function getFailureRemark(): Promise<string> {
-    return getSetting<string>('failureRemark', 'Processing failed.');
+    return getSetting<string>('failureRemark', 'AUTOMATION ERROR: Contact Support');
 }
 export async function updateFailureRemark(remark: string): Promise<void> {
     return updateSetting('failureRemark', remark);
@@ -353,7 +381,13 @@ export async function updateFailureRemark(remark: string): Promise<void> {
 
 export async function getSmtpSettings(): Promise<SmtpSettings> {
     return getSetting<SmtpSettings>('smtpSettings', {
-        host: '', port: 587, secure: false, auth: { user: '', pass: '' }
+        host: "",
+        port: 587,
+        secure: true,
+        auth: {
+          user: "",
+          pass: ""
+        }
     });
 }
 export async function updateSmtpSettings(settings: SmtpSettings): Promise<void> {
