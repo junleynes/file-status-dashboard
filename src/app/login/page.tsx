@@ -28,8 +28,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 type LoginStep = 'credentials' | '2fa_verify' | '2fa_setup';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('P@ssw00rd');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [token, setToken] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState<LoginStep>('credentials');
@@ -299,5 +299,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    
