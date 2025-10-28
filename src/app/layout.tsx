@@ -13,7 +13,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export async function generateMetadata(): Promise<Metadata> {
   const db = await readDb();
-  const brandName = db.branding?.brandName || 'FileStatus Tracker';
+  const brandName = db.branding?.brandName || 'Publish Lookout';
   const favicon = db.branding?.favicon || '/favicon.ico';
   
   return {

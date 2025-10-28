@@ -299,10 +299,10 @@ export async function deleteFileStatusesByAge(maxAgeMs: number): Promise<number>
 // --- SETTINGS ---
 export async function getBranding(): Promise<BrandingSettings> {
     return getSetting<BrandingSettings>('branding', {
-        brandName: 'FileStatus Tracker',
+        brandName: 'Publish Lookout',
         logo: null,
         favicon: null,
-        footerText: '© 2024 FileStatus Tracker'
+        footerText: '© 2024 Publish Lookout'
     });
 }
 export async function updateBranding(settings: BrandingSettings): Promise<void> {
@@ -369,7 +369,7 @@ export async function updateSmtpSettings(settings: SmtpSettings): Promise<void> 
 export async function getMaintenanceSettings(): Promise<MaintenanceSettings> {
     return getSetting<MaintenanceSettings>('maintenanceSettings', {
         enabled: false,
-        message: 'Maintenance in Progress\n\n{Brand Name} is currently down for maintenance. We’re performing necessary updates to improve performance and reliability. Please check back later.'
+        message: "Maintenance in Progress\n\n{Brand Name} is currently down for maintenance. We’re performing necessary updates to improve performance and reliability. Please check back later."
     });
 }
 export async function updateMaintenanceSettings(settings: MaintenanceSettings): Promise<void> {
