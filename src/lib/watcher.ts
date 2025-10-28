@@ -40,7 +40,7 @@ async function pollDirectories() {
     const importPath = monitoredPaths.import.path;
     const failedPath = monitoredPaths.failed.path;
     const monitoredExtensions = new Set(monitoredExtensionsArray.map(ext => ext.toLowerCase()));
-    const { autoTrimInvalidChars, autoExpandPrefixes } = processingSettings;
+    const { autoTrimInvalidChars } = processingSettings;
 
     if (!importPath || !failedPath) {
         console.error('[Watcher] Monitored paths are not configured. Skipping poll cycle.');
@@ -56,71 +56,18 @@ async function pollDirectories() {
     let filesInFailed = await fs.readdir(failedPath).catch(() => [] as string[]);
     
     // --- Pass 1: Handle automated workflows for files in Rejected folder ---
-    const processedByAutomation = new Set<string>();
-
-    for (const originalFileName of filesInFailed) {
-      if (processedByAutomation.has(originalFileName)) continue;
-
-      const fileExt = path.extname(originalFileName).toLowerCase();
-      const extWithoutDot = fileExt.substring(1);
-      
-      const shouldMonitor = monitoredExtensions.size === 0 || monitoredExtensions.has(extWithoutDot);
-      if (!shouldMonitor) continue;
-
-      if (autoExpandPrefixes) {
-          const parts = path.basename(originalFileName, fileExt).split('_');
-          if (parts.length === 4 && parts[1].length === 6 && parts[2].length === 6 && parts[3].length === 5) {
-              const prefixPairsStr = parts[0];
-              if (prefixPairsStr.length > 0 && prefixPairsStr.length % 2 === 0) {
-                  const validPairs = [];
-                  for (let i = 0; i < prefixPairsStr.length; i += 2) {
-                      if (['P', 'B', 'C'].includes(prefixPairsStr[i].toUpperCase())) validPairs.push(prefixPairsStr.substring(i, i + 2));
-                  }
-
-                  if (validPairs.length > 1) {
-                      console.log(`[Watcher] Prefix expansion for "${originalFileName}". Pairs: ${validPairs.join(', ')}.`);
-                      const originalFilePath = path.join(failedPath, originalFileName);
-                      let allCopiesSucceeded = true;
-
-                      for (const pair of validPairs) {
-                          const newFileName = `${pair}_${parts[1]}_${parts[2]}_${parts[3]}${fileExt}`;
-                          const newFilePath = path.join(importPath, newFileName);
-                          try {
-                              await fs.copyFile(originalFilePath, newFilePath);
-                              filesToUpsert.push({
-                                id: `file-${Date.now()}-${Math.random()}`, name: newFileName, status: 'processing',
-                                source: monitoredPaths.import.name, lastUpdated: new Date().toISOString(), remarks: `Auto-expanded from ${originalFileName}`
-                              });
-                          } catch (copyError) {
-                              console.error(`[Watcher] ERROR: Failed to create copy "${newFileName}":`, copyError);
-                              allCopiesSucceeded = false; break;
-                          }
-                      }
-
-                      if (allCopiesSucceeded) {
-                          try {
-                              await fs.unlink(originalFilePath);
-                              processedByAutomation.add(originalFileName);
-                              filesToDelete.push(originalFileName);
-                          } catch (deleteError) {
-                              console.error(`[Watcher] ERROR: Failed to delete original expanded file "${originalFileName}":`, deleteError);
-                          }
-                      }
-                      continue; 
-                  }
-              }
-          }
-      }
-
-      if (autoTrimInvalidChars) {
+    if (autoTrimInvalidChars) {
+      for (const originalFileName of filesInFailed) {
         const cleanedFileName = cleanFileName(originalFileName);
         if (originalFileName !== cleanedFileName) {
             const oldPath = path.join(failedPath, originalFileName);
             const newPath = path.join(importPath, cleanedFileName);
             
             try {
+                // Check if a file with the cleaned name already exists to avoid overwriting
                 await fs.access(newPath);
             } catch (e) {
+                // File does not exist, proceed with rename/move
                 try {
                     await fs.rename(oldPath, newPath);
                     filesToDelete.push(originalFileName);
@@ -129,7 +76,6 @@ async function pollDirectories() {
                         source: monitoredPaths.import.name, lastUpdated: new Date().toISOString(),
                         remarks: `Auto-renamed from "${originalFileName}" and retried.`
                     });
-                    processedByAutomation.add(originalFileName);
                 } catch (renameError) {
                     console.error(`[Watcher] ERROR: Failed to auto-fix and retry "${originalFileName}":`, renameError);
                 }
@@ -137,6 +83,7 @@ async function pollDirectories() {
         }
       }
     }
+
 
     // Refresh file lists after automated moves/deletes
     const filesInImport = await fs.readdir(importPath).catch(() => [] as string[]);
@@ -168,8 +115,9 @@ async function pollDirectories() {
         file.lastUpdated = new Date().toISOString();
         filesToUpsert.push(file);
       } else if (inImport && ['published', 'failed', 'timed-out'].includes(file.status)) {
+        const userRemark = extractUserFromRemarks(file.remarks);
         file.status = 'processing';
-        file.remarks = file.remarks?.includes('Auto-') ? file.remarks : 'Retrying file manually.';
+        file.remarks = file.remarks?.includes('Auto-') ? file.remarks : `Retrying file. ${userRemark || ''}`.trim();
         file.lastUpdated = new Date().toISOString();
         filesToUpsert.push(file);
       }

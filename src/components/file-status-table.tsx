@@ -14,7 +14,7 @@ import type { FileStatus, User } from "@/types";
 import { format } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "./ui/button";
-import { RefreshCw, FilePenLine, Trash2 } from "lucide-react";
+import { RefreshCw, FilePenLine, Trash2, GitBranchPlus } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -28,11 +28,12 @@ interface FileStatusTableProps {
   onRetry: (file: FileStatus) => void;
   onRename: (file: FileStatus) => void;
   onDelete: (file: FileStatus) => void;
+  onExpand: (file: FileStatus) => void;
   isReadOnly?: boolean;
   userRole?: User['role'];
 }
 
-export function FileStatusTable({ files, onRetry, onRename, onDelete, isReadOnly = false, userRole }: FileStatusTableProps) {
+export function FileStatusTable({ files, onRetry, onRename, onDelete, onExpand, isReadOnly = false, userRole }: FileStatusTableProps) {
   const getStatusClasses = (status: FileStatus['status']): string => {
     switch (status) {
       case 'processing':
@@ -56,6 +57,19 @@ export function FileStatusTable({ files, onRetry, onRename, onDelete, isReadOnly
     }
   };
 
+  const isExpandable = (fileName: string): boolean => {
+    const name = fileName.substring(0, fileName.lastIndexOf('.')) || fileName;
+    const parts = name.split('_');
+    if (parts.length !== 4) return false;
+    const prefixPairs = parts[0];
+    if (prefixPairs.length % 2 !== 0) return false;
+
+    for (let i = 0; i < prefixPairs.length; i += 2) {
+      if (!['P', 'B', 'C'].includes(prefixPairs[i].toUpperCase())) return false;
+    }
+    return true;
+  };
+
 
   return (
     <TooltipProvider>
@@ -67,7 +81,7 @@ export function FileStatusTable({ files, onRetry, onRename, onDelete, isReadOnly
               <TableHead>Status</TableHead>
               <TableHead>Remarks</TableHead>
               <TableHead>Last Updated</TableHead>
-              <TableHead className="text-right w-[120px]">Actions</TableHead>
+              <TableHead className="text-right w-[160px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -107,6 +121,18 @@ export function FileStatusTable({ files, onRetry, onRename, onDelete, isReadOnly
                     <TableCell className="text-right">
                       {file.status === 'failed' && (
                         <div className="flex gap-1 justify-end">
+                          {isExpandable(file.name) && (
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onExpand(file)} disabled={isReadOnly}>
+                                    <GitBranchPlus className="h-4 w-4" />
+                                </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                <p>Expand Prefixes</p>
+                                </TooltipContent>
+                            </Tooltip>
+                          )}
                            <Tooltip>
                             <TooltipTrigger asChild>
                                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onRename(file)} disabled={isReadOnly}>
@@ -158,3 +184,5 @@ export function FileStatusTable({ files, onRetry, onRename, onDelete, isReadOnly
     </TooltipProvider>
   );
 }
+
+    

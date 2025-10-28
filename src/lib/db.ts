@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import * as fs from 'fs';
@@ -341,7 +340,6 @@ export async function updateCleanupSettings(settings: CleanupSettings): Promise<
 export async function getProcessingSettings(): Promise<ProcessingSettings> {
     return getSetting<ProcessingSettings>('processingSettings', {
         autoTrimInvalidChars: false,
-        autoExpandPrefixes: false
     });
 }
 export async function updateProcessingSettings(settings: ProcessingSettings): Promise<void> {

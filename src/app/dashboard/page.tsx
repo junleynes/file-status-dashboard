@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { FileStatusTable } from "@/components/file-status-table";
 import { useAuth } from "@/hooks/use-auth";
 import type { FileStatus } from "@/types";
-import { Trash2, Search, X, CheckCircle2, AlertTriangle, Loader, Clock, Info, Trash, Upload, Download, FileUp } from "lucide-react";
+import { Trash2, Search, X, CheckCircle2, AlertTriangle, Loader, Clock, Info, Trash, Upload, Download, FileUp, GitBranchPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { clearAllFileStatuses, retryFile, renameFile, checkWriteAccess, deleteFailedFile, exportFileStatusesToCsv, importFileStatusesFromCsv } from "@/lib/actions";
+import { clearAllFileStatuses, retryFile, renameFile, checkWriteAccess, deleteFailedFile, exportFileStatusesToCsv, importFileStatusesFromCsv, expandFilePrefixes } from "@/lib/actions";
 import { readDb } from "@/lib/db";
 import {
   Dialog,
@@ -164,6 +164,26 @@ export default function DashboardPage() {
       }
       setIsDeleteDialogOpen(false);
       setFileToDelete(null);
+    });
+  };
+
+  const handleExpand = (file: FileStatus) => {
+    startTransition(async () => {
+        if (!user) return;
+        const result = await expandFilePrefixes(file.name, user.username);
+        if (result.success) {
+            await fetchFiles();
+            toast({
+                title: "File Expanded",
+                description: `"${file.name}" was expanded into ${result.count} new files in the import folder.`,
+            });
+        } else {
+            toast({
+                title: "Expansion Failed",
+                description: result.error,
+                variant: "destructive",
+            });
+        }
     });
   };
 
@@ -385,7 +405,7 @@ export default function DashboardPage() {
             <Alert variant="destructive" className="mb-4">
               <Info className="h-4 w-4" />
               <AlertDescription>
-                The application does not have write permissions for the monitored folders. The "Retry" and "Rename" actions are disabled. Please grant write access to the application user on the server or contact your system administrator.
+                The application does not have write permissions for the monitored folders. Actions are disabled. Please grant write access to the application user on the server or contact your system administrator.
               </AlertDescription>
             </Alert>
           )}
@@ -419,6 +439,7 @@ export default function DashboardPage() {
             onRetry={handleRetry}
             onRename={handleOpenRenameDialog}
             onDelete={handleOpenDeleteDialog}
+            onExpand={handleExpand}
             isReadOnly={!canWrite}
             userRole={user?.role}
           />
@@ -501,7 +522,5 @@ export default function DashboardPage() {
     </motion.div>
   );
 }
-
-    
 
     

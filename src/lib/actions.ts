@@ -225,6 +225,80 @@ export async function deleteFailedFile(fileName: string): Promise<{ success: boo
     }
 }
 
+export async function expandFilePrefixes(fileName: string, username: string): Promise<{ success: boolean; count?: number; error?: string }> {
+    const { import: importPath, failed: failedPath } = await db.getMonitoredPaths();
+    const originalFilePath = path.join(failedPath.path, fileName);
+    const fileExt = path.extname(fileName);
+    const baseName = path.basename(fileName, fileExt);
+    
+    try {
+        await fs.access(originalFilePath);
+    } catch {
+        return { success: false, error: `File not found in failed directory: ${fileName}` };
+    }
+
+    const parts = baseName.split('_');
+    if (parts.length !== 4) {
+        return { success: false, error: 'Filename does not match the required format for expansion.' };
+    }
+
+    const prefixPairsStr = parts[0];
+    const validPairs: string[] = [];
+    if (prefixPairsStr.length > 0 && prefixPairsStr.length % 2 === 0) {
+        for (let i = 0; i < prefixPairsStr.length; i += 2) {
+            if (['P', 'B', 'C'].includes(prefixPairsStr[i].toUpperCase())) {
+                validPairs.push(prefixPairsStr.substring(i, i + 2));
+            }
+        }
+    }
+
+    if (validPairs.length <= 1) {
+        return { success: false, error: 'File does not contain multiple valid prefixes to expand.' };
+    }
+
+    let allCopiesSucceeded = true;
+    const newFilesToUpsert: FileStatus[] = [];
+
+    for (const pair of validPairs) {
+        const newFileName = `${pair}_${parts[1]}_${parts[2]}_${parts[3]}${fileExt}`;
+        const newFilePath = path.join(importPath.path, newFileName);
+        try {
+            await fs.copyFile(originalFilePath, newFilePath);
+            newFilesToUpsert.push({
+                id: `file-${Date.now()}-${Math.random()}`,
+                name: newFileName,
+                status: 'processing',
+                source: importPath.name,
+                lastUpdated: new Date().toISOString(),
+                remarks: `Expanded from ${fileName}. [user: ${username}]`
+            });
+        } catch (copyError) {
+            console.error(`[Action] ERROR: Failed to create copy "${newFileName}":`, copyError);
+            allCopiesSucceeded = false;
+            // Attempt to clean up already created files
+            for (const fileToClean of newFilesToUpsert) {
+                try { await fs.unlink(path.join(importPath.path, fileToClean.name)); } catch {}
+            }
+            return { success: false, error: `Failed to create copy: ${newFileName}. Expansion aborted.` };
+        }
+    }
+
+    if (allCopiesSucceeded) {
+        try {
+            await fs.unlink(originalFilePath);
+            await db.deleteFileStatus(fileName);
+            await db.bulkUpsertFileStatuses(newFilesToUpsert);
+            revalidatePath('/dashboard');
+            return { success: true, count: validPairs.length };
+        } catch (deleteError) {
+            console.error(`[Action] ERROR: Failed to delete original expanded file "${fileName}":`, deleteError);
+            return { success: false, error: `Failed to delete original file after expansion.` };
+        }
+    }
+
+    return { success: false, error: 'An unknown error occurred during expansion.' };
+}
+
 export async function updateBrandingSettings(settings: BrandingSettings) {
   await db.updateBranding(settings);
   revalidatePath('/settings');
@@ -571,3 +645,5 @@ export async function importAllSettings(settings: Partial<Database>): Promise<{ 
         return { success: false, error: 'An unexpected error occurred during the import process.' };
     }
 }
+
+    
