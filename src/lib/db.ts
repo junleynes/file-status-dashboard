@@ -97,13 +97,11 @@ const getDb = (): Database.Database => {
     if (!dbInstance) {
         console.log('[DB] Initializing new SQLite singleton connection...');
         
-        dbInstance = new Database(dbPath);
-        
-        console.log('[DB] Applying WAL mode and busy timeout to singleton instance...');
-        dbInstance.pragma('journal_mode = WAL');
-        dbInstance.pragma('busy_timeout = 5000');
+        const db = new Database(dbPath);
+        db.pragma('journal_mode = WAL');
+        db.pragma('busy_timeout = 5000');
 
-        dbInstance.exec(`
+        db.exec(`
             CREATE TABLE IF NOT EXISTS users (
                 id TEXT PRIMARY KEY,
                 username TEXT NOT NULL UNIQUE,
@@ -132,7 +130,8 @@ const getDb = (): Database.Database => {
                 value TEXT
             );
         `);
-    
+        
+        dbInstance = db;
         // Check if migration should be run after ensuring tables exist
         migrateDataFromJson(dbInstance);
     }
@@ -301,10 +300,10 @@ export async function deleteFileStatusesByAge(maxAgeMs: number): Promise<number>
 // --- SETTINGS ---
 export async function getBranding(): Promise<BrandingSettings> {
     return getSetting<BrandingSettings>('branding', {
-        brandName: "FileStatus Tracker",
+        brandName: 'FileStatus Tracker',
         logo: null,
         favicon: null,
-        footerText: "© 2024 FileStatus Tracker"
+        footerText: '© 2024 FileStatus Tracker'
     });
 }
 export async function updateBranding(settings: BrandingSettings): Promise<void> {
@@ -313,16 +312,8 @@ export async function updateBranding(settings: BrandingSettings): Promise<void> 
 
 export async function getMonitoredPaths(): Promise<MonitoredPaths> {
     return getSetting<MonitoredPaths>('monitoredPaths', {
-        import: {
-          id: "import-path",
-          name: "Import",
-          path: "/Users/user/Documents/monitored/import"
-        },
-        failed: {
-          id: "failed-path",
-          name: "Failed",
-          path: "/Users/user/Documents/monitored/failed"
-        }
+        import: { id: 'import-path', name: 'Import', path: '' },
+        failed: { id: 'failed-path', name: 'Failed', path: '' }
     });
 }
 export async function updateMonitoredPaths(settings: MonitoredPaths): Promise<void> {
@@ -330,10 +321,7 @@ export async function updateMonitoredPaths(settings: MonitoredPaths): Promise<vo
 }
 
 export async function getMonitoredExtensions(): Promise<string[]> {
-    return getSetting<string[]>('monitoredExtensions', [
-        "mov",
-        "mxf"
-    ]);
+    return getSetting<string[]>('monitoredExtensions', []);
 }
 export async function updateMonitoredExtensions(extensions: string[]): Promise<void> {
     return updateSetting('monitoredExtensions', extensions);
@@ -341,21 +329,9 @@ export async function updateMonitoredExtensions(extensions: string[]): Promise<v
 
 export async function getCleanupSettings(): Promise<CleanupSettings> {
     return getSetting<CleanupSettings>('cleanupSettings', {
-        status: {
-          enabled: true,
-          value: "30",
-          unit: "days"
-        },
-        files: {
-          enabled: false,
-          value: "30",
-          unit: "days"
-        },
-        timeout: {
-          enabled: true,
-          value: "24",
-          unit: "hours"
-        }
+        status: { enabled: true, value: '7', unit: 'days' },
+        files: { enabled: false, value: '30', 'unit': 'days' },
+        timeout: { enabled: true, value: '24', unit: 'hours' }
     });
 }
 export async function updateCleanupSettings(settings: CleanupSettings): Promise<void> {
@@ -364,8 +340,8 @@ export async function updateCleanupSettings(settings: CleanupSettings): Promise<
 
 export async function getProcessingSettings(): Promise<ProcessingSettings> {
     return getSetting<ProcessingSettings>('processingSettings', {
-        autoTrimInvalidChars: true,
-        autoExpandPrefixes: true
+        autoTrimInvalidChars: false,
+        autoExpandPrefixes: false
     });
 }
 export async function updateProcessingSettings(settings: ProcessingSettings): Promise<void> {
@@ -381,13 +357,10 @@ export async function updateFailureRemark(remark: string): Promise<void> {
 
 export async function getSmtpSettings(): Promise<SmtpSettings> {
     return getSetting<SmtpSettings>('smtpSettings', {
-        host: "",
+        host: '',
         port: 587,
-        secure: true,
-        auth: {
-          user: "",
-          pass: ""
-        }
+        secure: false,
+        auth: { user: '', pass: '' }
     });
 }
 export async function updateSmtpSettings(settings: SmtpSettings): Promise<void> {
@@ -395,10 +368,9 @@ export async function updateSmtpSettings(settings: SmtpSettings): Promise<void> 
 }
 
 export async function getMaintenanceSettings(): Promise<MaintenanceSettings> {
-    const defaultMessage = `Maintenance in Progress\n\n{Brand Name} is currently down for maintenance. We’re performing necessary updates to improve performance and reliability. Please check back later.`;
     return getSetting<MaintenanceSettings>('maintenanceSettings', {
         enabled: false,
-        message: defaultMessage,
+        message: 'Maintenance in Progress\n\n{Brand Name} is currently down for maintenance. We’re performing necessary updates to improve performance and reliability. Please check back later.'
     });
 }
 export async function updateMaintenanceSettings(settings: MaintenanceSettings): Promise<void> {
@@ -444,3 +416,5 @@ export async function readDb(): Promise<JsonDatabase> {
         maintenanceSettings,
     };
 }
+
+    

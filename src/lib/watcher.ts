@@ -43,7 +43,7 @@ async function pollDirectories() {
     const { autoTrimInvalidChars, autoExpandPrefixes } = processingSettings;
 
     if (!importPath || !failedPath) {
-        console.error('[Polling] Monitored paths are not configured. Skipping poll.');
+        console.error('[Watcher] Monitored paths are not configured. Skipping poll cycle.');
         isPolling = false;
         return;
     }
@@ -78,7 +78,7 @@ async function pollDirectories() {
                   }
 
                   if (validPairs.length > 1) {
-                      console.log(`[LOG] Prefix expansion for "${originalFileName}". Pairs: ${validPairs.join(', ')}.`);
+                      console.log(`[Watcher] Prefix expansion for "${originalFileName}". Pairs: ${validPairs.join(', ')}.`);
                       const originalFilePath = path.join(failedPath, originalFileName);
                       let allCopiesSucceeded = true;
 
@@ -92,7 +92,7 @@ async function pollDirectories() {
                                 source: monitoredPaths.import.name, lastUpdated: new Date().toISOString(), remarks: `Auto-expanded from ${originalFileName}`
                               });
                           } catch (copyError) {
-                              console.error(`[ERROR] Failed to create copy "${newFileName}":`, copyError);
+                              console.error(`[Watcher] ERROR: Failed to create copy "${newFileName}":`, copyError);
                               allCopiesSucceeded = false; break;
                           }
                       }
@@ -103,7 +103,7 @@ async function pollDirectories() {
                               processedByAutomation.add(originalFileName);
                               filesToDelete.push(originalFileName);
                           } catch (deleteError) {
-                              console.error(`[ERROR] Failed to delete original expanded file "${originalFileName}":`, deleteError);
+                              console.error(`[Watcher] ERROR: Failed to delete original expanded file "${originalFileName}":`, deleteError);
                           }
                       }
                       continue; 
@@ -131,7 +131,7 @@ async function pollDirectories() {
                     });
                     processedByAutomation.add(originalFileName);
                 } catch (renameError) {
-                    console.error(`[ERROR] Failed to auto-fix and retry "${originalFileName}":`, renameError);
+                    console.error(`[Watcher] ERROR: Failed to auto-fix and retry "${originalFileName}":`, renameError);
                 }
             }
         }
@@ -212,7 +212,7 @@ async function pollDirectories() {
     }
 
   } catch (error) {
-    console.error('[Polling] An error occurred during the poll:', error);
+    console.error('[Watcher] An error occurred during the poll cycle:', error);
   } finally {
     isPolling = false;
   }
@@ -298,31 +298,36 @@ async function cleanupJob() {
 }
 
 // --- Service Initialization ---
-async function initializePollingService() {
-  console.log('[Service] Initializing polling and cleanup services...');
+async function initializeWatcherService() {
+  console.log('[Watcher] Initializing file watcher service...');
   try {
+    // Ensure DB is warm
+    await db.getUsers(); 
+    
     const monitoredPaths = await db.getMonitoredPaths();
+    if (!monitoredPaths.import.path || !monitoredPaths.failed.path) {
+        console.log('[Watcher] Monitored paths are not configured. Watcher will not start.');
+        return;
+    }
+
     await fs.access(monitoredPaths.import.path);
     await fs.access(monitoredPaths.failed.path);
-    console.log(`[Service] Watching Import: ${monitoredPaths.import.path}`);
-    console.log(`[Service] Watching Failed: ${monitoredPaths.failed.path}`);
+    
+    console.log(`[Watcher] Import directory: ${monitoredPaths.import.path}`);
+    console.log(`[Watcher] Failed directory: ${monitoredPaths.failed.path}`);
+    
     setInterval(pollDirectories, POLLING_INTERVAL);
     setInterval(cleanupJob, CLEANUP_INTERVAL);
-    console.log(`[Service] Polling started every ${POLLING_INTERVAL / 1000}s.`);
-    console.log(`[Service] Cleanup job runs every ${CLEANUP_INTERVAL / 1000}s.`);
+    
+    console.log(`[Watcher] Service started successfully. Polling every ${POLLING_INTERVAL / 1000} seconds.`);
   } catch(error: any) {
-       console.error(`[Service] A monitored directory is not accessible. Please check paths in settings. Error: ${error.message}`);
+       console.error(`[Watcher] CRITICAL: A monitored directory is not accessible. Please verify paths in settings. Error: ${error.message}`);
+       console.error('[Watcher] Service will not start due to inaccessible directories.');
   }
 }
 
-// Start the service
-(async () => {
-    try {
-        // The db module initializes itself on first import
-        console.log("[Service] Waiting for DB to initialize...");
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Short delay to ensure db is ready
-        await initializePollingService();
-    } catch (error) {
-        console.error("[Service] Failed to start services:", error);
-    }
-})();
+// Start the service. A delay is added to prevent race conditions during app startup.
+console.log('[Watcher] Staging watcher service startup...');
+setTimeout(initializeWatcherService, 2000);
+
+    
