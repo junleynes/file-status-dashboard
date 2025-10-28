@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Table,
   TableBody,
@@ -10,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import type { FileStatus, User } from "@/types";
+import type { FileStatus, User, ProcessingSettings } from "@/types";
 import { format } from "date-fns";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "./ui/button";
@@ -21,6 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { getProcessingSettings } from "@/lib/db";
 
 
 interface FileStatusTableProps {
@@ -34,6 +36,16 @@ interface FileStatusTableProps {
 }
 
 export function FileStatusTable({ files, onRetry, onRename, onDelete, onExpand, isReadOnly = false, userRole }: FileStatusTableProps) {
+  const [processingSettings, setProcessingSettings] = useState<ProcessingSettings | null>(null);
+
+  useEffect(() => {
+    async function fetchSettings() {
+        const settings = await getProcessingSettings();
+        setProcessingSettings(settings);
+    }
+    fetchSettings();
+  }, []);
+
   const getStatusClasses = (status: FileStatus['status']): string => {
     switch (status) {
       case 'processing':
@@ -62,12 +74,15 @@ export function FileStatusTable({ files, onRetry, onRename, onDelete, onExpand, 
     const parts = name.split('_');
     if (parts.length !== 4) return false;
     const prefixPairs = parts[0];
-    if (prefixPairs.length % 2 !== 0) return false;
+    if (prefixPairs.length < 4 || prefixPairs.length % 2 !== 0) return false;
 
+    let validPrefixCount = 0;
     for (let i = 0; i < prefixPairs.length; i += 2) {
-      if (!['P', 'B', 'C'].includes(prefixPairs[i].toUpperCase())) return false;
+      if (['P', 'B', 'C'].includes(prefixPairs[i].toUpperCase())) {
+        validPrefixCount++;
+      }
     }
-    return true;
+    return validPrefixCount > 1;
   };
 
 
@@ -121,7 +136,7 @@ export function FileStatusTable({ files, onRetry, onRename, onDelete, onExpand, 
                     <TableCell className="text-right">
                       {file.status === 'failed' && (
                         <div className="flex gap-1 justify-end">
-                          {isExpandable(file.name) && (
+                          {isExpandable(file.name) && !processingSettings?.autoExpandPrefixes && (
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                 <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => onExpand(file)} disabled={isReadOnly}>
@@ -184,5 +199,3 @@ export function FileStatusTable({ files, onRetry, onRename, onDelete, onExpand, 
     </TooltipProvider>
   );
 }
-
-    

@@ -69,6 +69,7 @@ const defaultSmtpSettings: SmtpSettings = {
 
 const defaultProcessingSettings: ProcessingSettings = {
     autoTrimInvalidChars: false,
+    autoExpandPrefixes: false,
 };
 
 const defaultMaintenanceSettings: MaintenanceSettings = {
@@ -578,7 +579,7 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>File Processing</CardTitle>
-          <CardDescription>Configure automated rules for how files are handled in the `rejected` folder.</CardDescription>
+          <CardDescription>Configure automated rules for how files are handled.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
             <div className="flex flex-row items-start space-x-4 rounded-lg border p-4">
@@ -591,6 +592,18 @@ export default function SettingsPage() {
                 <div className="flex-1 space-y-1">
                     <Label htmlFor="auto-trim-chars">Auto-fix invalid filenames</Label>
                     <p className="text-xs text-muted-foreground">When a file fails, automatically remove invalid characters and extra spaces from its filename, then move it to `import` to be retried.</p>
+                </div>
+            </div>
+             <div className="flex flex-row items-start space-x-4 rounded-lg border p-4">
+                <Switch
+                    id="auto-expand-prefixes"
+                    checked={processingSettings.autoExpandPrefixes}
+                    onCheckedChange={(checked) => handleProcessingSettingsChange('autoExpandPrefixes', checked)}
+                    disabled={isPending}
+                />
+                <div className="flex-1 space-y-1">
+                    <Label htmlFor="auto-expand-prefixes">Automatically Expand Filename Prefixes</Label>
+                    <p className="text-xs text-muted-foreground">When a file with multiple prefixes fails (e.g., `P1B2_...`), automatically create a copy for each prefix in the `import` folder.</p>
                 </div>
             </div>
         </CardContent>
@@ -928,5 +941,3 @@ export default function SettingsPage() {
     </motion.div>
   );
 }
-
-    
