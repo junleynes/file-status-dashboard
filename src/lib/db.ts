@@ -340,6 +340,7 @@ export async function updateCleanupSettings(settings: CleanupSettings): Promise<
 export async function getProcessingSettings(): Promise<ProcessingSettings> {
     return getSetting<ProcessingSettings>('processingSettings', {
         autoTrimInvalidChars: false,
+        autoExpandPrefixes: false,
     });
 }
 export async function updateProcessingSettings(settings: ProcessingSettings): Promise<void> {
@@ -414,5 +415,3 @@ export async function readDb(): Promise<JsonDatabase> {
         maintenanceSettings,
     };
 }
-
-    
